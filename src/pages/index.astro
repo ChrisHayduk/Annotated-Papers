@@ -7,14 +7,15 @@ const entries = (await getCollection('papers', (e) => !e.data.draft)).sort(
 );
 ---
 <BaseLayout
-  title="Annotated Papers — Chris Hayduk"
-  description="Walkthrough-style annotations of research papers worth reading deeply."
+  title="Annotated Papers by Chris Hayduk"
+  description="Walkthrough-style annotations of research papers worth reading deeply — by Chris Hayduk."
 >
   <section class="landing">
-    <h1>Annotated Papers</h1>
+    <h1>Annotated Papers by Chris Hayduk</h1>
     <p class="landing-lede">
       Line-by-line walkthroughs of research papers, with runnable code and interactive figures.
       In the tradition of <a href="https://nlp.seas.harvard.edu/annotated-transformer/">The Annotated Transformer</a>.
+      More of my writing lives at <a href="https://chrishayduk.com" rel="me">chrishayduk.com</a>.
     </p>
 
     {entries.length === 0 ? (

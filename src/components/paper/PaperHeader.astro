@@ -26,7 +26,7 @@ const shortCommit = frontmatter.referenceRepo?.commit?.slice(0, 7);
   {frontmatter.subtitle && <p class="paper-subtitle">{frontmatter.subtitle}</p>}
   <dl class="paper-meta">
     <div><dt>Paper</dt><dd>{frontmatter.authors.join(', ')} ({frontmatter.paperYear})</dd></div>
-    <div><dt>Annotated by</dt><dd>{frontmatter.annotator}</dd></div>
+    <div><dt>Annotated by</dt><dd><a href="https://chrishayduk.com" rel="me author" target="_blank">{frontmatter.annotator}</a></dd></div>
     <div><dt>Published</dt><dd>{published}{updated && updated !== published && <> · updated {updated}</>}</dd></div>
     {frontmatter.readingTimeMinutes && (
       <div><dt>Reading time</dt><dd>~{frontmatter.readingTimeMinutes} min</dd></div>

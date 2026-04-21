@@ -2,23 +2,31 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 ---
 <BaseLayout
-  title="About — Annotated Papers"
+  title="About — Annotated Papers by Chris Hayduk"
   description="What this site is and how to read it."
 >
   <article class="prose">
     <h1>About</h1>
     <p>
-      This site hosts line-by-line annotations of research papers I've found worth
-      understanding deeply. Each post interleaves the paper's prose, the relevant
-      math, and a faithful minimal implementation of the algorithm —
+      This site hosts line-by-line annotations of research papers I've found
+      worth understanding deeply. Each post interleaves the paper's prose, the
+      relevant math, and a faithful minimal reimplementation of the algorithm —
       in the tradition of
       <a href="https://nlp.seas.harvard.edu/annotated-transformer/">The Annotated Transformer</a>.
     </p>
     <p>
-      Code blocks come from minimal reimplementations whose source lives alongside
-      the post, pinned to a specific commit so you can always read the exact
-      version the annotation describes. Every annotation is written by a human and
-      can be followed end-to-end by running the referenced code locally.
+      The code blocks aren't just pseudocode — they come from real, runnable
+      reimplementations I've written specifically for pedagogical clarity.
+      Variable names match the paper's notation, comments cite the supplement's
+      algorithm numbers inline, and the whole thing has unit and integration
+      tests. For <a href="/alphafold2">the AlphaFold2 annotation</a>, that code
+      lives in <a href="https://github.com/ChrisHayduk/minAlphaFold2">minAlphaFold2</a>
+      — ~8,000 lines of PyTorch, ~95% of the paper implemented.
+    </p>
+    <p>
+      Each post pins the referenced repo to a specific commit, so the code you
+      read here is the exact code the site builds against. You can clone the
+      repo, follow along, and re-run every example locally.
     </p>
     <p>
       — <a href="https://chrishayduk.com">Chris Hayduk</a>

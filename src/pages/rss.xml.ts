@@ -5,7 +5,7 @@ import type { APIContext } from 'astro';
 export async function GET(context: APIContext) {
   const entries = await getCollection('papers', (e) => !e.data.draft);
   return rss({
-    title: 'Annotated Papers',
+    title: 'Annotated Papers by Chris Hayduk',
     description: 'Line-by-line walkthroughs of research papers worth reading deeply.',
     site: context.site ?? 'https://annotated.chrishayduk.com',
     items: entries

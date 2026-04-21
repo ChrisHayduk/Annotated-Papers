@@ -13,13 +13,19 @@
     "astro": "astro",
     "check": "astro check",
     "typecheck": "tsc --noEmit",
-    "verify-snippets": "node src/scripts/verify-snippets.mjs"
+    "verify-snippets": "node src/scripts/verify-snippets.mjs",
+    "build-favicons": "node scripts/build_favicons.mjs"
   },
   "dependencies": {
+    "3dmol": "^2.5.4",
     "@astrojs/mdx": "^5.0.3",
     "@astrojs/react": "^5.0.3",
     "@astrojs/rss": "^4.0.18",
     "@astrojs/sitemap": "^3.7.2",
+    "@fontsource/inter": "^5.2.8",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.6.0",
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.2.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
@@ -31,11 +37,15 @@
     "rehype-katex": "^7.0.1",
     "rehype-slug": "^6.0.0",
     "remark-math": "^6.0.0",
+    "satori": "^0.26.0",
+    "satori-html": "^0.3.2",
     "shiki": "^4.0.2",
-    "tailwindcss": "^4.2.4"
+    "tailwindcss": "^4.2.4",
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.8",
+    "@types/three": "^0.184.0",
     "typescript": "^6.0.3"
   }
 }

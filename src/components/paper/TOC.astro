@@ -13,17 +13,151 @@ const { headings } = Astro.props;
 const items = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
 ---
 {items.length > 0 && (
-  <nav class="toc">
+  <nav class="toc" aria-label="Table of contents">
     <p class="toc-title">Contents</p>
     <ol>
       {items.map((h) => (
         <li data-depth={h.depth}>
-          <a href={`#${h.slug}`}>{h.text}</a>
+          <a href={`#${h.slug}`} data-toc-link={h.slug}>{h.text}</a>
         </li>
       ))}
     </ol>
   </nav>
 )}
+
+<script>
+  // Scrollspy: watch the article's h2/h3 headings, highlight the TOC link
+  // for whichever section is currently near the top of the viewport, and
+  // keep the active link visible inside the TOC's own scroll container.
+  //
+  // The activation zone is a horizontal band covering roughly the top 10% to
+  // 40% of the viewport. A heading becomes "active" when it crosses into
+  // that zone; the last heading to enter wins.
+  function initScrollspy() {
+    const toc = document.querySelector<HTMLElement>('.toc');
+    if (!toc) return;
+    // The TOC itself is not scrollable; the enclosing .paper-toc-column is
+    // the one with overflow-y: auto and a bounded max-height.
+    const scrollContainer =
+      toc.closest<HTMLElement>('.paper-toc-column') ?? toc;
+
+    const links = Array.from(toc.querySelectorAll<HTMLAnchorElement>('a[data-toc-link]'));
+    if (links.length === 0) return;
+
+    const linkById = new Map<string, HTMLAnchorElement>();
+    const headingOrder: string[] = [];
+    for (const a of links) {
+      const id = a.getAttribute('data-toc-link');
+      if (!id) continue;
+      linkById.set(id, a);
+      headingOrder.push(id);
+    }
+
+    const headings = headingOrder
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
+    if (headings.length === 0) return;
+
+    const visible = new Set<string>();
+    let activeId: string | null = null;
+    // When the user clicks a TOC link we lock the active state to the clicked
+    // target briefly, so the IntersectionObserver doesn't thrash through
+    // whatever sections happen to pass by the activation zone during the
+    // browser's smooth-scroll animation.
+    let lockedUntil = 0;
+    const CLICK_LOCK_MS = 900;
+
+    function scrollTocToActive(link: HTMLAnchorElement) {
+      // Manually scroll the TOC column so that the active link sits about a
+      // third of the way down the visible area. Computing offsets via rect
+      // math keeps us robust no matter how the layout shakes out — we don't
+      // rely on offsetParent or scrollIntoView's heuristic for picking which
+      // ancestor to scroll.
+      const colRect = scrollContainer.getBoundingClientRect();
+      const linkRect = link.getBoundingClientRect();
+      const safeTop = colRect.top + 60;
+      const safeBottom = colRect.bottom - 60;
+      if (linkRect.top >= safeTop && linkRect.bottom <= safeBottom) {
+        // Already comfortably inside the visible TOC area — leave the scroll
+        // alone, otherwise every keyboard arrow flicker would jump the list.
+        return;
+      }
+      const linkTopInCol = linkRect.top - colRect.top + scrollContainer.scrollTop;
+      const desired = linkTopInCol - scrollContainer.clientHeight / 3;
+      scrollContainer.scrollTo({ top: Math.max(0, desired), behavior: 'smooth' });
+    }
+
+    function setActive(id: string | null) {
+      if (id === activeId) return;
+      activeId = id;
+      for (const a of links) a.classList.remove('toc-active');
+      if (!id) return;
+      const link = linkById.get(id);
+      if (!link) return;
+      link.classList.add('toc-active');
+      scrollTocToActive(link);
+    }
+
+    function pickActive() {
+      if (performance.now() < lockedUntil) return; // click is driving, stay put
+      for (let i = headingOrder.length - 1; i >= 0; i--) {
+        if (visible.has(headingOrder[i])) {
+          setActive(headingOrder[i]);
+          return;
+        }
+      }
+      // Nothing in the activation zone — keep the previous active.
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const id = (entry.target as HTMLElement).id;
+          if (entry.isIntersecting) visible.add(id);
+          else visible.delete(id);
+        }
+        pickActive();
+      },
+      {
+        rootMargin: '-10% 0px -60% 0px',
+        threshold: 0,
+      },
+    );
+
+    for (const h of headings) observer.observe(h);
+
+    // Click-to-highlight: the moment a TOC link is activated (via mouse or
+    // keyboard), reflect that immediately rather than waiting for the scroll
+    // animation to fire observer events. Also lock the observer briefly so
+    // the intermediate sections flying past don't steal the highlight.
+    for (const a of links) {
+      const handler = () => {
+        const id = a.getAttribute('data-toc-link');
+        if (!id) return;
+        lockedUntil = performance.now() + CLICK_LOCK_MS;
+        setActive(id);
+      };
+      a.addEventListener('click', handler);
+      a.addEventListener('keydown', (ev) => {
+        if ((ev as KeyboardEvent).key === 'Enter' || (ev as KeyboardEvent).key === ' ') handler();
+      });
+    }
+
+    // Initial state: pick whichever heading is closest to the top of the
+    // viewport right now (so deep-linked URLs land with the right item lit).
+    const firstVisible = headings.find((h) => {
+      const r = h.getBoundingClientRect();
+      return r.bottom > 0 && r.top < window.innerHeight;
+    });
+    if (firstVisible) setActive(firstVisible.id);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initScrollspy, { once: true });
+  } else {
+    initScrollspy();
+  }
+</script>
 
 <style>
   .toc {
@@ -38,9 +172,30 @@ const items = headings.filter((h) => h.depth >= 2 && h.depth <= 3);
     color: var(--fg-muted);
     margin: 0 0 0.6rem;
   }
-  .toc ol { list-style: none; padding: 0; margin: 0; }
-  .toc li { margin: 0.2rem 0; }
-  .toc li[data-depth="3"] { padding-left: 1rem; font-size: 0.78rem; color: var(--fg-muted); }
-  .toc a { text-decoration: none; color: var(--fg-muted); }
+  .toc ol {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-left: 1px solid var(--rule);
+  }
+  .toc li { margin: 0; }
+  .toc li[data-depth="3"] { font-size: 0.78rem; }
+  .toc a {
+    display: block;
+    text-decoration: none;
+    color: var(--fg-muted);
+    padding: 0.2rem 0.6rem;
+    margin-left: -1px;
+    border-left: 2px solid transparent;
+    transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+  }
+  .toc li[data-depth="3"] a { padding-left: 1.4rem; }
   .toc a:hover, .toc a:focus { color: var(--fg); }
+  .toc a.toc-active {
+    color: var(--accent);
+    border-left-color: var(--accent);
+    font-weight: 600;
+    background: color-mix(in oklab, var(--accent) 8%, transparent);
+  }
+  .toc li[data-depth="3"] a.toc-active { font-weight: 500; }
 </style>
