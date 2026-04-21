@@ -1,0 +1,238 @@
+---
+// Big-picture AlphaFold2 pipeline overview, for §1.5.
+//
+// This is a "birds-eye" view — inputs on the left, outputs on the right,
+// recycling shown as a loop from outputs back around to the Evoformer.
+// Scope is intentionally different from EvoformerDiagram (which zooms into
+// one block) and RecyclingDiagram (which focuses on the recycling
+// mechanism). This one is just the whole pipeline at a glance, for
+// readers who want to orient before the deep dive in §§2–14.
+---
+<figure class="af2-arch-fig">
+  <svg
+    viewBox="0 0 900 310"
+    role="img"
+    aria-label="AlphaFold2 pipeline overview: three input kinds feed an embedder, which produces the MSA and pair representations m and z; these flow through 48 Evoformer blocks with recycling, then into an 8-iteration Structure Module, which emits 3D atom coordinates plus auxiliary predictions."
+  >
+    <defs>
+      <marker id="af2-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--fg-muted)" />
+      </marker>
+      <marker id="af2-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
+      </marker>
+    </defs>
+
+    {/* ----- Input column (left) ----- */}
+    <g class="af2-input">
+      <rect x="20" y="50" width="130" height="38" rx="5" />
+      <text x="85" y="73" text-anchor="middle">Target sequence</text>
+    </g>
+    <g class="af2-input">
+      <rect x="20" y="100" width="130" height="38" rx="5" />
+      <text x="85" y="123" text-anchor="middle">MSA</text>
+    </g>
+    <g class="af2-input">
+      <rect x="20" y="150" width="130" height="38" rx="5" />
+      <text x="85" y="173" text-anchor="middle">Templates</text>
+    </g>
+
+    {/* ----- Input embedder ----- */}
+    <g class="af2-box af2-box--process">
+      <rect x="200" y="80" width="130" height="78" rx="5" />
+      <text x="265" y="110" text-anchor="middle">Input</text>
+      <text x="265" y="128" text-anchor="middle">embedder</text>
+      <text x="265" y="148" text-anchor="middle" class="af2-box-sub">→ m, z</text>
+    </g>
+
+    {/* Arrows from inputs to embedder */}
+    <g class="af2-arrows-in">
+      <path d="M 150 69 C 175 69, 180 100, 200 100" marker-end="url(#af2-arrow)" />
+      <path d="M 150 119 L 195 119" marker-end="url(#af2-arrow)" />
+      <path d="M 150 169 C 175 169, 180 140, 200 140" marker-end="url(#af2-arrow)" />
+    </g>
+
+    {/* ----- Evoformer ----- */}
+    <g class="af2-box af2-box--accent">
+      <rect x="380" y="80" width="150" height="78" rx="5" />
+      <text x="455" y="110" text-anchor="middle">Evoformer</text>
+      <text x="455" y="128" text-anchor="middle" class="af2-box-sub">× 48 blocks</text>
+      <text x="455" y="148" text-anchor="middle" class="af2-box-sub">§§3–8</text>
+    </g>
+
+    {/* Embedder → Evoformer */}
+    <path class="af2-flow" d="M 330 119 L 375 119" marker-end="url(#af2-arrow)" />
+    <text x="353" y="110" text-anchor="middle" class="af2-flow-label">m, z</text>
+
+    {/* ----- Structure Module ----- */}
+    <g class="af2-box af2-box--accent">
+      <rect x="580" y="80" width="150" height="78" rx="5" />
+      <text x="655" y="110" text-anchor="middle">Structure</text>
+      <text x="655" y="128" text-anchor="middle">Module</text>
+      <text x="655" y="148" text-anchor="middle" class="af2-box-sub">× 8 iters · §10</text>
+    </g>
+
+    {/* Evoformer → Structure Module */}
+    <path class="af2-flow" d="M 530 119 L 575 119" marker-end="url(#af2-arrow)" />
+    <text x="552" y="110" text-anchor="middle" class="af2-flow-label">m, z</text>
+
+    {/* ----- Outputs (right column) ----- */}
+    <g class="af2-output">
+      <rect x="780" y="50" width="100" height="38" rx="5" />
+      <text x="830" y="73" text-anchor="middle">3D atoms</text>
+    </g>
+    <g class="af2-output">
+      <rect x="780" y="100" width="100" height="38" rx="5" />
+      <text x="830" y="118" text-anchor="middle">pLDDT /</text>
+      <text x="830" y="130" text-anchor="middle">distogram</text>
+    </g>
+    <g class="af2-output">
+      <rect x="780" y="150" width="100" height="38" rx="5" />
+      <text x="830" y="173" text-anchor="middle">PAE</text>
+    </g>
+
+    {/* Structure module → outputs */}
+    <g class="af2-arrows-out">
+      <path d="M 730 119 C 755 119, 760 69, 780 69" marker-end="url(#af2-arrow)" />
+      <path d="M 730 119 L 778 119" marker-end="url(#af2-arrow)" />
+      <path d="M 730 119 C 755 119, 760 169, 780 169" marker-end="url(#af2-arrow)" />
+    </g>
+
+    {/* ----- Recycling loop ----- */}
+    <path
+      class="af2-recycle"
+      d="M 655 158 L 655 230 L 455 230 L 455 158"
+      marker-end="url(#af2-arrow-accent)"
+    />
+    <text x="555" y="250" text-anchor="middle" class="af2-recycle-label">
+      recycle up to 4×   ·   §9
+    </text>
+    <text x="555" y="265" text-anchor="middle" class="af2-recycle-sub">
+      detached: m₁, z, pseudo-β coords fed back in
+    </text>
+
+    {/* ----- Legend underneath ----- */}
+    <text x="20" y="298" class="af2-note">
+      Five key ideas of the paper: end-to-end training, the Evoformer, Invariant Point Attention, FAPE loss, and recycling.
+    </text>
+  </svg>
+
+  <figcaption>
+    The full AlphaFold2 pipeline at a glance. Three input modalities
+    (sequence, MSA, templates) are embedded into the
+    MSA representation <em>m</em> and pair representation <em>z</em>; 48
+    Evoformer blocks refine both; the Structure Module then turns <em>z</em>
+    and the target row of <em>m</em> into a per-residue set of rigid frames
+    and atom coordinates. Up to four recycling cycles feed outputs back as
+    inputs. Section numbers in each box point to where that component is
+    opened up in the annotation.
+  </figcaption>
+</figure>
+
+<style>
+  .af2-arch-fig {
+    margin: 1.75rem 0;
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    padding: 1rem 1.25rem 0.9rem;
+    background: color-mix(in oklab, var(--bg) 94%, var(--rule) 6%);
+  }
+  .af2-arch-fig svg {
+    width: 100%;
+    height: auto;
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 13px;
+  }
+
+  /* Input tiles (left column) */
+  .af2-input rect {
+    fill: color-mix(in oklab, var(--rule) 25%, transparent);
+    stroke: var(--rule);
+    stroke-width: 1;
+  }
+  .af2-input text {
+    fill: var(--fg);
+    font-size: 12px;
+  }
+
+  /* Output tiles (right column) */
+  .af2-output rect {
+    fill: color-mix(in oklab, var(--rule) 25%, transparent);
+    stroke: var(--rule);
+    stroke-width: 1;
+  }
+  .af2-output text {
+    fill: var(--fg);
+    font-size: 12px;
+  }
+
+  /* Process boxes */
+  .af2-box rect {
+    stroke-width: 1;
+  }
+  .af2-box--process rect {
+    fill: color-mix(in oklab, var(--rule) 35%, transparent);
+    stroke: var(--rule);
+  }
+  .af2-box--accent rect {
+    fill: color-mix(in oklab, var(--accent) 14%, transparent);
+    stroke: var(--accent);
+  }
+  .af2-box text {
+    fill: var(--fg);
+    font-size: 13px;
+  }
+  .af2-box-sub {
+    fill: var(--fg-muted) !important;
+    font-size: 10.5px !important;
+    font-style: italic;
+  }
+
+  /* Flow arrows */
+  .af2-flow,
+  .af2-arrows-in path,
+  .af2-arrows-out path {
+    stroke: var(--fg-muted);
+    stroke-width: 1.3;
+    fill: none;
+  }
+  .af2-flow-label {
+    fill: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+  }
+
+  /* Recycling arrow */
+  .af2-recycle {
+    stroke: var(--accent);
+    stroke-width: 1.5;
+    stroke-dasharray: 6 4;
+    fill: none;
+  }
+  .af2-recycle-label {
+    fill: var(--accent);
+    font-size: 11.5px;
+    font-style: italic;
+    font-weight: 500;
+  }
+  .af2-recycle-sub {
+    fill: var(--fg-muted);
+    font-size: 10.5px;
+    font-style: italic;
+  }
+
+  .af2-note {
+    fill: var(--fg-muted);
+    font-size: 10.5px;
+    font-style: italic;
+  }
+
+  .af2-arch-fig figcaption {
+    font-size: 0.85rem;
+    color: var(--fg-muted);
+    margin-top: 0.7rem;
+    line-height: 1.55;
+  }
+  .af2-arch-fig figcaption em { font-style: italic; color: var(--fg); }
+</style>

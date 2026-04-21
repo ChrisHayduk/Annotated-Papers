@@ -33,3 +33,9 @@ vendor/**/*.pyc
 
 # Playwright MCP session logs
 .playwright-mcp/
+
+# Co-evolution pipeline: large build-time inputs/intermediates. The widget
+# consumes public/co-evolution/trypsin.json, which IS committed; the fastas
+# are only needed if someone wants to rebuild that JSON. Regeneration steps
+# are documented in scripts/build_coevolution_demo.py.
+scripts/data/*.fasta

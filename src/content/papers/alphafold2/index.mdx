@@ -33,7 +33,13 @@ import TriMulAnimator from '../../../components/interactive/alphafold2/TriMulAni
 import QuaternionFrame from '../../../components/interactive/alphafold2/QuaternionFrame.tsx';
 import IPAViewer from '../../../components/interactive/alphafold2/IPAViewer.tsx';
 import StructureViewer from '../../../components/interactive/alphafold2/StructureViewer.tsx';
+import MSAAttentionAnimator from '../../../components/interactive/alphafold2/MSAAttentionAnimator.tsx';
+import CoevolutionViewer from '../../../components/interactive/alphafold2/CoevolutionViewer.tsx';
+import OPMAnimator from '../../../components/interactive/alphafold2/OPMAnimator.tsx';
+import FAPEInvarianceDemo from '../../../components/interactive/alphafold2/FAPEInvarianceDemo.tsx';
 import RecyclingDiagram from '../../../components/mdx/RecyclingDiagram.astro';
+import EvoformerDiagram from '../../../components/mdx/EvoformerDiagram.astro';
+import AF2ArchitectureOverview from '../../../components/mdx/AF2ArchitectureOverview.astro';
 
 <EditorialNote>
   Over the past couple of years, I've been on a [journey](https://chrishayduk.com)
@@ -116,19 +122,34 @@ The data, it turns out, is not just the target sequence itself. The key insight,
 
 A multiple sequence alignment, or MSA, is exactly what it sounds like — take the target sequence, find a bunch of evolutionarily related sequences, and line them up so that homologous residues sit in the same column.
 
-<Figure caption="A fragment of an MSA. Each row is a protein from a different organism; each column is a position. Mutations show up as column variation; insertions and deletions as gaps (dashes).">
-  <pre style="font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.4; padding: 0.5rem; border: 1px solid var(--rule); border-radius: 4px; overflow-x: auto;">
-  Homo sapiens     M K L L P V L - - T A L L A L C W L A
-  Mus musculus     M K L L P V L - - T A L L A L C W L A
-  Danio rerio      M K L L T V L - - T A L L A L C W L A
-  Drosophila       M L - - P V L P T T A L L A L T W - A
-  Saccharomyces    M K V L - V L A T T S L L T L S W M G
-                   ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^
-                   conserved      gap   variable
+<Figure caption="A 23-column window from a real cytochrome c MSA, anchored on the CXXCH heme-binding motif (highlighted). Sequences are mature proteins pulled from UniProt — H. sapiens (P99999), E. caballus (P00004), G. gallus (P67881), D. melanogaster Cyt c-2 (P84029), S. cerevisiae iso-1 (P00044) — and span roughly a billion years of divergence. The leading columns are gaps in the vertebrate rows because fly and yeast both carry N-terminal extensions that the vertebrate lineage has lost. The two cysteines and the histidine in CXXCH are invariant across every known cytochrome c — they covalently anchor the heme cofactor — and several other columns (11, 15, 21) are invariant too. That kind of conservation, and the correlated mutations it implies, is what AlphaFold2 will mine for evolutionary coupling.">
+  <pre style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.7; padding: 0.95rem 1.1rem; border: 1px solid var(--rule); border-radius: 4px; overflow-x: auto; margin: 0;">
+  H. sapiens       <span style="opacity: 0.4">- - - - -</span> G D V E K G K K I F I M K <span style="background: rgba(201, 74, 74, 0.14);">C S Q C H</span>
+  E. caballus      <span style="opacity: 0.4">- - - - -</span> G D V E K G K K I F V Q K <span style="background: rgba(201, 74, 74, 0.14);">C A Q C H</span>
+  G. gallus        <span style="opacity: 0.4">- - - - -</span> G D I E K G K K I F V Q K <span style="background: rgba(201, 74, 74, 0.14);">C S Q C H</span>
+  D. melanogaster  <span style="opacity: 0.4">-</span> G V P A G D V E K G K K L F V Q R <span style="background: rgba(201, 74, 74, 0.14);">C A Q C H</span>
+  S. cerevisiae    T E F K A G S A K K G A T L F K T R <span style="background: rgba(201, 74, 74, 0.14);">C L Q C H</span>
   </pre>
 </Figure>
 
 From an MSA, you can infer a lot. Column variation tells you which residues are conserved (evolution has decided they matter) and which are free to drift. Correlated columns tell you which residues are coupled — the hallmark of contact in 3D. Phylogenetic structure tells you which species the signal is coming from. This is why AlphaFold2 treats the MSA as a first-class input rather than as an ancillary feature.
+
+That co-evolution-equals-contact claim deserves to be seen rather than asserted. The widget below lays out an MSA of about 2,000 serine proteases (Pfam PF00089, aligned with MAFFT), the standard contact-prediction heatmap (top-L coupled pairs in red vs. top-L real contacts in blue — the same evaluation format DCA papers use), and the real bovine β-trypsin structure (2PTN), all linked together. Click any cell, or pick a preset below, and the corresponding pair lights up in all three panels. Bright red cells are coupling predictions that landed on a true contact; faded red cells are false positives. The signal here is genuine — roughly a quarter of the top-L predictions are real contacts, several multiples of the random baseline. That's what AlphaFold2 inherits as raw material and sharpens with the Evoformer.
+
+<CoevolutionViewer client:visible />
+
+<EditorialNote>
+  Trypsin is the classical DCA benchmark (Morcos et al. 2011, Marks et al.
+  2011) for good reason — its family is large, phylogenetically diverse, and
+  its fold gives clean co-evolution signal. Cytochrome c, which we've been
+  using as the running example for MSAs, turns out to be a bad target for
+  this kind of pairwise statistical analysis: only about 34 effective
+  sequences after accounting for phylogenetic redundancy, which is far too
+  few. So the widget switches protein for this one demonstration. The
+  underlying claim is the same, and AlphaFold2 doesn't care about the
+  specific family — but if you want to *see* MSA signal with your own eyes,
+  serine proteases show it cleanly.
+</EditorialNote>
 
 AlphaFold2 builds its MSAs by searching four databases with two tools (HHBlits for sensitivity, JackHMMER for coverage):
 
@@ -180,7 +201,9 @@ Before diving in, it's useful to name what was actually new here. The rough outl
 4. **FAPE loss.** A frame-aligned loss that measures error per-residue-frame rather than in a global coordinate system, giving every residue a local view of the structure it's trying to build.
 5. **Recycling.** A mechanism where the model's own output predictions get fed back as input for another forward pass, enabling iterative refinement at both train and test time.
 
-Each of these gets a section. The rest of the annotation is, essentially, a line-by-line tour of how these five ideas become executable PyTorch.
+Each of these gets a section. The rest of the annotation is, essentially, a line-by-line tour of how these five ideas become executable PyTorch. Before we zoom in, here's the whole pipeline at a glance — three input modalities on the left, the two-stack Evoformer in the middle, the Structure Module turning representations into atoms, and a recycling loop wrapping the whole thing. Every box below points to the section where we'll open it up.
+
+<AF2ArchitectureOverview />
 
 ## 2. Input representations
 
@@ -218,6 +241,10 @@ The encoding is a clipped one-hot over $(j - i)$ within a window of $\pm 32$ res
 ## 3. The Evoformer — bird's-eye view
 
 The Evoformer is the core of AlphaFold2. It's a stack of 48 identical blocks, each one taking an MSA representation $m$ and a pair representation $z$, applying a fixed sequence of updates, and passing the refined $(m, z)$ to the next block. By the end of the stack, $m$ and $z$ are both dense with structure-relevant information and ready for the Structure Module to consume.
+
+Before we open a block up, it helps to have the topology in front of us. The diagram below shows one block: two streams running left-to-right, seven sub-blocks in temporal order, and the two cross-lane arrows that are the entire architectural point of the Evoformer.
+
+<EvoformerDiagram />
 
 <Snippet file="minalphafold/evoformer.py" symbol="Evoformer" />
 
@@ -268,6 +295,10 @@ Here's the architectural trick: the pair representation enters the MSA stack *on
 
 Row attention teaches each sequence about its own residues. The next three sub-blocks teach the MSA about itself *across* sequences, shape up the representation for downstream consumption, and then — the payoff — push the aggregated evolutionary signal into $z$ so the pair stack can use it.
 
+Before we dive into the sub-blocks, the core distinction between row- and column-wise attention is worth seeing visually. Both operate on the same MSA tensor; they just run along perpendicular axes. Toggle between them in the widget below — notice how the "scope" of a single attention step is either *one organism's whole chain* (rows) or *one aligned position across every organism* (columns).
+
+<MSAAttentionAnimator client:visible />
+
 ### 5.1 MSA column-wise attention (Algorithm 8)
 
 Column attention is the dual of row attention — for each residue position $i$, attention runs *down* the column, and sequences at the same position attend to each other. That is, for residue $i$ in sequence $k$, the embedding gets updated using information from residue $i$ in sequences $1, \dots, k-1, k+1, \dots, s$.
@@ -297,6 +328,10 @@ Then the core operation: for every sequence $k$ in the MSA and every pair of res
 We then sum these outer products over all sequences in the MSA and divide by the number of sequences (with proper masking to ignore padded rows). This gives us, for each pair $(i, j)$, the average feature-by-feature interaction between residue $i$ and residue $j$ across the entire alignment. Intuitively: if residues $i$ and $j$ consistently co-vary across the MSA — the hallmark of co-evolution and likely physical contact — that pattern will show up strongly and consistently in these outer products and survive the averaging. If they vary independently, the signals across sequences will wash each other out.
 
 The resulting tensor has shape $(r, r, c', c')$. We flatten the last two dimensions to get $(r, r, c' \cdot c')$, then apply a final linear projection to map down to $c_z$, the channel dimension of the pair representation. That produces a tensor of shape $(r, r, c_z)$ that can be added directly into $z$.
+
+The whole process is easier to feel than to read. The widget below walks through a toy MSA (6 sequences, $c' = 4$) with a fixed target pair $(i, j)$. Watch the outer-product matrix for each sequence slot into a running mean — patterns shared across sequences reinforce, idiosyncratic patterns wash out, and what survives is the per-pair signal the pair stack then builds geometry on top of.
+
+<OPMAnimator client:visible />
 
 <EditorialNote>
   This is the cleanest handoff in the whole architecture. The MSA stack uses
@@ -672,6 +707,10 @@ $$
 Read the two terms from inside out. $T_i^{-1} \cdot x_j$ is "the position of atom $x_j$ as seen by residue $i$'s local frame" — exactly the same "lift into local frame" operation we met in IPA (§10b). $(T_i^*)^{-1} \cdot x_j^*$ is the same thing, but in the ground truth structure — where residue $i$ *should* have seen atom $j$ sit. The error $d_{ij}$ is the Euclidean distance between those two local-frame vectors.
 
 This has two crucial properties. First, it's **SE(3) invariant by construction.** Apply any global rigid motion $G$ to the predicted structure; frames transform as $T_i \mapsto G \cdot T_i$ and atoms as $x_j \mapsto G \cdot x_j$; the local-frame position becomes $(G \cdot T_i)^{-1} \cdot (G \cdot x_j) = T_i^{-1} \cdot G^{-1} \cdot G \cdot x_j = T_i^{-1} \cdot x_j$. Same answer. The loss does not penalize global rotations or translations — exactly as we wanted. Second, it's **per-residue:** the error is between residue $i$'s view and residue $i$'s view $^*$, not a blob of globally-aggregated error. Every residue gets its own say about how the structure looks locally, and the loss is an average over all these views.
+
+The invariance is easier to feel than to derive. The widget below puts two chains side by side — ground truth in gray, prediction in pink — and gives you two sliders. One rotates the whole prediction globally; the other pushes a single residue off its true position. Coordinate MSE and FAPE both update in real time. Watch what happens: as you rotate the prediction, coordinate MSE shoots up (every residue has moved in the global frame) while FAPE stays pinned (rotating everything together preserves every local-frame relationship). Push the single residue, and both losses rise. That combination — insensitive to the arbitrary global frame, sensitive to every real mistake — is the architectural argument for FAPE in a single interaction.
+
+<FAPEInvarianceDemo client:visible />
 
 <Snippet file="minalphafold/losses.py" symbol="frame_aligned_point_error" />
 
