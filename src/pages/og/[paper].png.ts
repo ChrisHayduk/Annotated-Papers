@@ -135,7 +135,10 @@ export const GET: APIRoute = async ({ props }) => {
 
   const png = new Resvg(svg, { fitTo: { mode: 'width', value: 1200 } }).render().asPng();
 
-  return new Response(png, {
+  // Wrap the Node Buffer in a Uint8Array so it satisfies Response's BodyInit
+  // type. TypeScript 5+/6 tightened up Buffer<ArrayBufferLike> so it no longer
+  // auto-assigns to BodyInit. The underlying bytes are the same.
+  return new Response(new Uint8Array(png), {
     headers: {
       'Content-Type': 'image/png',
       'Cache-Control': 'public, max-age=31536000, immutable',

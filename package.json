@@ -41,7 +41,8 @@
     "satori-html": "^0.3.2",
     "shiki": "^4.0.2",
     "tailwindcss": "^4.2.4",
-    "three": "^0.184.0"
+    "three": "^0.184.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.8",
