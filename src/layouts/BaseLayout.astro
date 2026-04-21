@@ -12,6 +12,16 @@ interface Props {
 const { title, description, ogImage, jsonLd } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const resolvedOg = ogImage ? new URL(ogImage, Astro.site).toString() : undefined;
+
+// Google Search Console verification token. Set GOOGLE_SITE_VERIFICATION in
+// the Cloudflare Pages build environment (Settings → Environment variables)
+// with the content value Google gives you when you add a URL-prefix property
+// for https://annotated.chrishayduk.com/. Not a secret — it's public in the
+// rendered HTML — but keeping it in env rather than in source means the token
+// can be changed without a commit.
+const gscToken =
+  (import.meta.env as Record<string, string | undefined>).GOOGLE_SITE_VERIFICATION ??
+  (typeof process !== 'undefined' ? process.env.GOOGLE_SITE_VERIFICATION : undefined);
 ---
 
 <!doctype html>
@@ -38,6 +48,8 @@ const resolvedOg = ogImage ? new URL(ogImage, Astro.site).toString() : undefined
     <meta name="theme-color" content="#8a1a1a" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#14161a" media="(prefers-color-scheme: dark)" />
     <link rel="alternate" type="application/rss+xml" title="Annotated Papers by Chris Hayduk" href="/rss.xml" />
+
+    {gscToken && <meta name="google-site-verification" content={gscToken} />}
 
     {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
 

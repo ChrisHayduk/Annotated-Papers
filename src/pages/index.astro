@@ -5,10 +5,41 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 const entries = (await getCollection('papers', (e) => !e.data.draft)).sort(
   (a, b) => b.data.publishedDate.valueOf() - a.data.publishedDate.valueOf(),
 );
+
+// Site-level JSON-LD. Establishes that the site is authored and published by
+// Chris Hayduk, and points at chrishayduk.com via author.sameAs. Search
+// engines use sameAs to collapse identities across domains — the thing we
+// most want for a fresh subdomain that needs to inherit trust from the
+// main domain.
+const PERSON = {
+  '@type': 'Person' as const,
+  name: 'Chris Hayduk',
+  url: 'https://chrishayduk.com',
+  sameAs: [
+    'https://chrishayduk.com',
+    'https://github.com/ChrisHayduk',
+    'https://x.com/ChrisHayduk',
+    'https://www.linkedin.com/in/chrishayduk/'
+  ],
+};
+
+const siteJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'Annotated Papers by Chris Hayduk',
+  alternateName: 'Annotated Papers',
+  url: Astro.site?.toString() ?? 'https://annotated.chrishayduk.com/',
+  description:
+    'Walkthrough-style annotations of research papers worth reading deeply, by Chris Hayduk.',
+  author: PERSON,
+  publisher: PERSON,
+  inLanguage: 'en',
+};
 ---
 <BaseLayout
   title="Annotated Papers by Chris Hayduk"
   description="Walkthrough-style annotations of research papers worth reading deeply — by Chris Hayduk."
+  jsonLd={siteJsonLd}
 >
   <section class="landing">
     <h1>Annotated Papers by Chris Hayduk</h1>

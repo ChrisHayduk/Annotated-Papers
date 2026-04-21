@@ -35,17 +35,51 @@ interface Props {
 
 const { frontmatter, headings } = Astro.props;
 
+// Known identities for the annotator — used in JSON-LD's author.sameAs and
+// publisher.sameAs to help Google's knowledge graph collapse the two sites
+// (annotated.chrishayduk.com and chrishayduk.com) onto the same person. Add
+// more URLs here (Twitter/X, LinkedIn, Mastodon, Bluesky, ORCID, etc.) as
+// additional identities are confirmed.
+const ANNOTATOR_SAMEAS = [
+  'https://chrishayduk.com',
+  'https://github.com/ChrisHayduk',
+  'https://x.com/ChrisHayduk',
+  'https://www.linkedin.com/in/chrishayduk/'
+];
+
+const annotatorPerson = {
+  '@type': 'Person' as const,
+  name: frontmatter.annotator,
+  url: 'https://chrishayduk.com',
+  sameAs: ANNOTATOR_SAMEAS,
+};
+
+const pageUrl = new URL(`/${frontmatter.slug}`, Astro.site ?? 'https://annotated.chrishayduk.com').toString();
+
 const jsonLd = {
   '@context': 'https://schema.org',
   '@type': 'ScholarlyArticle',
   headline: frontmatter.title,
   datePublished: frontmatter.publishedDate.toISOString(),
   dateModified: (frontmatter.updatedDate ?? frontmatter.publishedDate).toISOString(),
-  author: { '@type': 'Person', name: frontmatter.annotator, url: 'https://chrishayduk.com' },
+  author: annotatorPerson,
+  publisher: annotatorPerson,
   about: frontmatter.authors.map((a) => ({ '@type': 'Person', name: a })),
   description: frontmatter.description,
   inLanguage: 'en',
-  isBasedOn: frontmatter.doi ? `https://doi.org/${frontmatter.doi}` : frontmatter.arxivId ? `https://arxiv.org/abs/${frontmatter.arxivId}` : undefined,
+  keywords: frontmatter.tags,
+  url: pageUrl,
+  mainEntityOfPage: pageUrl,
+  isBasedOn: frontmatter.doi
+    ? `https://doi.org/${frontmatter.doi}`
+    : frontmatter.arxivId
+      ? `https://arxiv.org/abs/${frontmatter.arxivId}`
+      : undefined,
+  isPartOf: {
+    '@type': 'WebSite' as const,
+    name: 'Annotated Papers by Chris Hayduk',
+    url: Astro.site?.toString() ?? 'https://annotated.chrishayduk.com/',
+  },
 };
 ---
 
