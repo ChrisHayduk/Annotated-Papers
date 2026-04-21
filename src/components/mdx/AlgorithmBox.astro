@@ -1,0 +1,16 @@
+---
+interface Props {
+  number: number | string;
+  name: string;
+  id?: string;
+}
+const { number, name, id } = Astro.props;
+---
+<figure class="algorithm-box" id={id}>
+  <header>Algorithm {number} — {name}</header>
+  <pre><slot /></pre>
+</figure>
+
+<style>
+  .algorithm-box pre { margin: 0; background: transparent; border: none; padding: 0; white-space: pre; }
+</style>

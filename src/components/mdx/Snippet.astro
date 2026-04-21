@@ -1,0 +1,60 @@
+---
+import { codeToHtml } from 'shiki';
+import { extractSnippet, resolveRepoUrl } from '../../lib/snippets.ts';
+
+interface Props {
+  file: string;
+  start?: number;
+  end?: number;
+  lines?: string;
+  symbol?: string;
+  lang?: string;
+  title?: string;
+}
+
+const { file, start, end, lines: linesProp, symbol, lang = 'python', title } = Astro.props;
+
+let computedStart = start;
+let computedEnd = end;
+
+if (linesProp && (!computedStart || !computedEnd)) {
+  const m = linesProp.match(/^(\d+)-(\d+)$/);
+  if (m) {
+    computedStart = Number(m[1]);
+    computedEnd = Number(m[2]);
+  }
+}
+
+const result = extractSnippet(file, { start: computedStart, end: computedEnd, symbol });
+const html = await codeToHtml(result.code, {
+  lang,
+  themes: { light: 'github-light', dark: 'github-dark-dimmed' },
+  defaultColor: false,
+});
+const href = resolveRepoUrl(file, `${result.start}-${result.end}`);
+const label = title ?? symbol ?? `${file}:${result.start}-${result.end}`;
+---
+
+<figure class="snippet">
+  <div set:html={html} />
+  <footer>
+    <span>{label}</span>
+    <a href={href} target="_blank" rel="noopener">view on GitHub →</a>
+  </footer>
+</figure>
+
+<style is:global>
+  .snippet pre.shiki {
+    margin: 0;
+    padding: 1rem 1.15rem;
+    border-radius: 6px;
+    border: 1px solid var(--rule);
+    overflow-x: auto;
+    font-size: 0.88rem;
+    line-height: 1.55;
+  }
+  html.dark .snippet pre.shiki,
+  html.dark .snippet pre.shiki span { color: var(--shiki-dark) !important; background-color: var(--shiki-dark-bg) !important; }
+  html:not(.dark) .snippet pre.shiki,
+  html:not(.dark) .snippet pre.shiki span { color: var(--shiki-light) !important; background-color: var(--shiki-light-bg) !important; }
+</style>

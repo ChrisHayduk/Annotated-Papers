@@ -1,0 +1,76 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-serif: "Newsreader", "ET Book", Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --color-paper: #faf9f7;
+  --color-ink: #111418;
+  --color-ink-muted: #3f4650;
+  --color-rule: #e5e2dc;
+  --color-accent: #8a1a1a;
+
+  --color-paper-dark: #14161a;
+  --color-ink-dark: #e9ebee;
+  --color-ink-muted-dark: #a8adb5;
+  --color-rule-dark: #262a2f;
+  --color-accent-dark: #e8a1a1;
+}
+
+:root {
+  color-scheme: light;
+  --bg: var(--color-paper);
+  --fg: var(--color-ink);
+  --fg-muted: var(--color-ink-muted);
+  --rule: var(--color-rule);
+  --accent: var(--color-accent);
+}
+
+.dark {
+  color-scheme: dark;
+  --bg: var(--color-paper-dark);
+  --fg: var(--color-ink-dark);
+  --fg-muted: var(--color-ink-muted-dark);
+  --rule: var(--color-rule-dark);
+  --accent: var(--color-accent-dark);
+}
+
+html {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-serif);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 0.06em;
+  text-underline-offset: 0.15em;
+}
+a:hover { text-decoration-thickness: 0.12em; }
+
+code, pre, kbd, samp {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+.heading-anchor {
+  margin-left: 0.4em;
+  opacity: 0;
+  text-decoration: none;
+  color: var(--fg-muted);
+  transition: opacity 120ms ease;
+}
+.heading-anchor::after { content: "#"; }
+h1:hover .heading-anchor, h2:hover .heading-anchor, h3:hover .heading-anchor, h4:hover .heading-anchor { opacity: 0.6; }

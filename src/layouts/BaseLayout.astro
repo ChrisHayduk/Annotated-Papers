@@ -1,0 +1,112 @@
+---
+import '../styles/global.css';
+import '../styles/paper.css';
+
+interface Props {
+  title: string;
+  description: string;
+  ogImage?: string;
+  jsonLd?: Record<string, unknown>;
+}
+
+const { title, description, ogImage, jsonLd } = Astro.props;
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const resolvedOg = ogImage ? new URL(ogImage, Astro.site).toString() : undefined;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content={canonical} />
+    {resolvedOg && <meta property="og:image" content={resolvedOg} />}
+    <meta name="twitter:card" content="summary_large_image" />
+    {resolvedOg && <meta name="twitter:image" content={resolvedOg} />}
+
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="alternate" type="application/rss+xml" title="Annotated Papers" href="/rss.xml" />
+
+    {jsonLd && <script is:inline type="application/ld+json" set:html={JSON.stringify(jsonLd)} />}
+
+    <script is:inline>
+      (() => {
+        try {
+          const stored = localStorage.getItem('theme');
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const shouldDark = stored ? stored === 'dark' : prefersDark;
+          if (shouldDark) document.documentElement.classList.add('dark');
+        } catch {}
+      })();
+    </script>
+  </head>
+  <body>
+    <header class="site-nav">
+      <div class="site-nav-inner">
+        <a href="/" class="site-title">Annotated Papers</a>
+        <nav>
+          <a href="/">Index</a>
+          <a href="/about">About</a>
+          <button id="theme-toggle" type="button" aria-label="Toggle theme">◐</button>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <slot />
+    </main>
+
+    <footer class="site-footer">
+      <div class="site-footer-inner">
+        <p>
+          Annotated by <a href="https://chrishayduk.com">Chris Hayduk</a>.
+          <a href="/rss.xml">RSS</a>.
+        </p>
+      </div>
+    </footer>
+
+    <script is:inline>
+      const btn = document.getElementById('theme-toggle');
+      btn?.addEventListener('click', () => {
+        const html = document.documentElement;
+        const next = html.classList.toggle('dark') ? 'dark' : 'light';
+        try { localStorage.setItem('theme', next); } catch {}
+      });
+    </script>
+
+    <style is:global>
+      .site-nav { border-bottom: 1px solid var(--rule); }
+      .site-nav-inner {
+        max-width: 72rem;
+        margin-inline: auto;
+        padding: 0.9rem 1.25rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-family: var(--font-sans);
+        font-size: 0.95rem;
+      }
+      .site-title { font-weight: 600; text-decoration: none; color: var(--fg); }
+      .site-nav nav { display: flex; gap: 1.1rem; align-items: center; }
+      .site-nav nav a { text-decoration: none; color: var(--fg-muted); }
+      .site-nav nav a:hover { color: var(--fg); }
+      #theme-toggle {
+        background: transparent; border: 1px solid var(--rule); color: var(--fg-muted);
+        width: 1.8rem; height: 1.8rem; border-radius: 50%; cursor: pointer; font-size: 0.95rem;
+      }
+      .site-footer { border-top: 1px solid var(--rule); margin-top: 4rem; }
+      .site-footer-inner {
+        max-width: 72rem; margin-inline: auto; padding: 1.5rem 1.25rem;
+        font-family: var(--font-sans); font-size: 0.85rem; color: var(--fg-muted);
+      }
+    </style>
+  </body>
+</html>

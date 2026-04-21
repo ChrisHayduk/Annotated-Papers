@@ -1,0 +1,24 @@
+---
+interface Props {
+  id?: string;
+  number?: number | string;
+}
+const { id, number } = Astro.props;
+---
+<div class="equation" id={id}>
+  <div class="equation-body"><slot /></div>
+  {number !== undefined && <div class="equation-number">({number})</div>}
+</div>
+
+<style>
+  .equation {
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 1.25rem 0;
+  }
+  .equation-body { overflow-x: auto; }
+  .equation-number { font-family: var(--font-mono); font-size: 0.85rem; color: var(--fg-muted); }
+</style>

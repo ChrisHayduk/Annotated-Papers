@@ -1,0 +1,193 @@
+---
+slug: alphafold2
+title: The Annotated AlphaFold2
+subtitle: A line-by-line walkthrough of Jumper et al. 2021, with a minimal PyTorch implementation.
+authors:
+  - John Jumper
+  - Richard Evans
+  - Alexander Pritzel
+  - et al.
+paperYear: 2021
+arxivId: "2106.08614"
+doi: "10.1038/s41586-021-03819-2"
+venue: Nature
+publishedDate: 2026-04-21
+tags: [structural-biology, deep-learning, attention, geometry]
+description: An annotated walkthrough of AlphaFold2 — Evoformer, Invariant Point Attention, FAPE, and a minimal PyTorch reference implementation you can run.
+readingTimeMinutes: 180
+referenceRepo:
+  url: https://github.com/ChrisHayduk/minAlphaFold2
+  commit: 1aa629bef31300b0f9bc32235bfe8f95a8ff09e6
+draft: false
+---
+
+import PaperQuote from '../../../components/mdx/PaperQuote.astro';
+import EditorialNote from '../../../components/mdx/EditorialNote.astro';
+import Callout from '../../../components/mdx/Callout.astro';
+import Figure from '../../../components/mdx/Figure.astro';
+import Sidenote from '../../../components/mdx/Sidenote.astro';
+import AlgorithmBox from '../../../components/mdx/AlgorithmBox.astro';
+import Equation from '../../../components/mdx/Equation.astro';
+import CodeRef from '../../../components/mdx/CodeRef.astro';
+import Snippet from '../../../components/mdx/Snippet.astro';
+
+<EditorialNote>
+  This annotation walks through AlphaFold2 section by section, tracking the paper
+  against a faithful minimal PyTorch reimplementation ([minAlphaFold2](https://github.com/ChrisHayduk/minAlphaFold2)). Every code
+  block below is read directly from that repo at a pinned commit, so what you
+  read here is the exact code that runs end-to-end.
+</EditorialNote>
+
+## 0. Prelims
+
+Imports, device selection, loading a tiny config, and how to follow along locally.
+
+<EditorialNote>
+  **Run along.** Clone <a href="https://github.com/ChrisHayduk/minAlphaFold2">minAlphaFold2</a>,
+  `pip install -e .`, then `pytest tests/test_shapes.py` to verify the forward
+  pass can instantiate at a toy config before you read any further.
+</EditorialNote>
+
+_Section to be written._
+
+## 1. Background
+
+The folding problem in a page: primary structure to tertiary structure, Levinthal's paradox, CASP, and the prior art AF2 displaced.
+
+### 1.1 MSAs and evolutionary coupling
+
+_Section to be written._
+
+### 1.2 Templates
+
+_Section to be written._
+
+### 1.3 Rigid frames and the SE(3) landscape
+
+_Section to be written._
+
+### 1.4 What AlphaFold2 changed
+
+_Section to be written._
+
+## 2. Input representations
+
+Target feature, MSA, extra MSA, templates, relative position. Algorithms 3 and 4 of the supplement.
+
+_Section to be written._
+
+## 3. The Evoformer — bird's-eye view
+
+Shapes of the MSA representation `m` and the pair representation `z`; the 48-block stack; row attention reads `z` as a bias — the paper's key sequence↔structure coupling. Algorithm 6.
+
+_Section to be written._
+
+## 4. MSA row attention with pair bias
+
+Algorithm 7. The central MSA↔pair coupling.
+
+<Snippet file="minalphafold/evoformer.py" symbol="MSARowAttentionWithPairBias" title="MSARowAttentionWithPairBias — minalphafold/evoformer.py" />
+
+_Section to be written._
+
+## 5. Column attention, transition, outer-product mean
+
+Algorithms 8, 9, 10. The outer-product mean is the MSA → pair bridge.
+
+_Section to be written._
+
+## 6. Triangle multiplicative updates
+
+Outgoing and incoming edge contractions. The triangle-consistency intuition. Algorithms 11, 12.
+
+_Interactive: **TriMulAnimator** — pick `(i, j)`, watch the sum-over-k light up `a_ik ⊙ b_jk`._
+
+_Section to be written._
+
+## 7. Triangle self-attention
+
+Algorithms 13, 14.
+
+_Section to be written._
+
+## 8. Extra MSA and templates
+
+Algorithms 16–19 (compressed).
+
+_Section to be written._
+
+## 9. Recycling
+
+Feeding previous-cycle predictions back into the input embeddings, with stop-gradient. Algorithms 30–32.
+
+_Section to be written._
+
+## 10. The Structure Module
+
+The paper's geometric centerpiece. Algorithm 20.
+
+### 10a. Rigid frames
+
+Building a local frame from three backbone atoms; quaternion ↔ rotation matrix; what SE(3) invariance means in code. Algorithm 21.
+
+_Interactive: **QuaternionFrame** — sliders over quaternion components, rendered 3-axis gizmo._
+
+_Section to be written._
+
+### 10b. Invariant Point Attention
+
+The paper's signature attention variant. Scalar queries/keys/values, pair bias, and point queries/keys in local frames. Algorithm 22.
+
+_Interactive: **IPAViewer** — a residue's local frame, attention weights drawn as connections to spatial neighbors, scene rotation to demonstrate invariance._
+
+_Section to be written._
+
+### 10c. Backbone update
+
+Algorithm 23. Quaternion head + translation head → $T_i \leftarrow T_i \circ \text{update}$.
+
+_Section to be written._
+
+### 10d. All-atom coordinates
+
+Torsion angles → 8 rigid groups per residue → 14 atom positions. Algorithms 24 and 25.
+
+_Section to be written._
+
+### 10e. The full structure module loop
+
+Putting it together. Algorithm 20.
+
+_Section to be written._
+
+## 11. Auxiliary heads
+
+Distogram, masked-MSA, pLDDT, experimentally-resolved.
+
+_Section to be written._
+
+## 12. Losses
+
+FAPE derivation and clamping; torsion loss; pLDDT; distogram; structural violations. Algorithms 27, 28, 29.
+
+_Section to be written._
+
+## 13. Training
+
+Feature engineering and cropping (Algorithm 1); recycling sampling; self-distillation as the honest gap.
+
+_Section to be written._
+
+## 14. A real-world walkthrough
+
+Overfit a single PDB chain. Load inputs, run forward, compute loss, step, watch RMSD drop.
+
+_Interactive: **StructureViewer** — predicted vs. ground truth, colored by pLDDT, scrubbable through training steps._
+
+_Section to be written._
+
+## 15. What AlphaFold2 left unsolved
+
+Complexes (→ AF3), dynamics, design. Pointers to AF2.3, ESMFold, Boltz-1.
+
+_Section to be written._

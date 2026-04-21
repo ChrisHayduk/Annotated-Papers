@@ -1,0 +1,81 @@
+---
+interface Props {
+  frontmatter: {
+    title: string;
+    subtitle?: string;
+    authors: string[];
+    paperYear: number;
+    annotator: string;
+    publishedDate: Date;
+    updatedDate?: Date;
+    arxivId?: string;
+    doi?: string;
+    venue?: string;
+    readingTimeMinutes?: number;
+    referenceRepo?: { url: string; commit: string };
+  };
+}
+
+const { frontmatter } = Astro.props;
+const published = frontmatter.publishedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+const updated = frontmatter.updatedDate?.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+const shortCommit = frontmatter.referenceRepo?.commit?.slice(0, 7);
+---
+<header class="paper-header">
+  <h1>{frontmatter.title}</h1>
+  {frontmatter.subtitle && <p class="paper-subtitle">{frontmatter.subtitle}</p>}
+  <dl class="paper-meta">
+    <div><dt>Paper</dt><dd>{frontmatter.authors.join(', ')} ({frontmatter.paperYear})</dd></div>
+    <div><dt>Annotated by</dt><dd>{frontmatter.annotator}</dd></div>
+    <div><dt>Published</dt><dd>{published}{updated && updated !== published && <> · updated {updated}</>}</dd></div>
+    {frontmatter.readingTimeMinutes && (
+      <div><dt>Reading time</dt><dd>~{frontmatter.readingTimeMinutes} min</dd></div>
+    )}
+    <div class="paper-badges">
+      {frontmatter.arxivId && (
+        <a class="badge" href={`https://arxiv.org/abs/${frontmatter.arxivId}`} target="_blank" rel="noopener">arXiv:{frontmatter.arxivId}</a>
+      )}
+      {frontmatter.doi && (
+        <a class="badge" href={`https://doi.org/${frontmatter.doi}`} target="_blank" rel="noopener">doi:{frontmatter.doi}</a>
+      )}
+      {frontmatter.referenceRepo && (
+        <a class="badge" href={`${frontmatter.referenceRepo.url}/tree/${frontmatter.referenceRepo.commit}`} target="_blank" rel="noopener">
+          reference @ {shortCommit}
+        </a>
+      )}
+    </div>
+  </dl>
+</header>
+
+<style>
+  .paper-header { margin-bottom: 2rem; }
+  .paper-header h1 { margin-top: 0; margin-bottom: 0.25rem; font-size: 2.5rem; line-height: 1.15; letter-spacing: -0.015em; font-weight: 500; }
+  .paper-subtitle { color: var(--fg-muted); font-size: 1.125rem; margin: 0.15rem 0 1.25rem; font-style: italic; }
+  .paper-meta {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+    gap: 0.2rem 1rem;
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    color: var(--fg-muted);
+    margin: 0;
+    padding: 0.9rem 0;
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
+  }
+  .paper-meta > div { display: contents; }
+  .paper-meta dt { font-weight: 600; color: var(--fg); }
+  .paper-meta dd { margin: 0; }
+  .paper-badges { grid-column: 1 / -1; margin-top: 0.5rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+  .badge {
+    display: inline-flex; align-items: center;
+    padding: 0.15rem 0.55rem;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    font-size: 0.78rem;
+    text-decoration: none;
+    color: var(--fg-muted);
+    background: transparent;
+  }
+  .badge:hover { color: var(--fg); border-color: var(--fg-muted); }
+</style>

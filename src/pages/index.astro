@@ -1,0 +1,56 @@
+---
+import { getCollection } from 'astro:content';
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+const entries = (await getCollection('papers', (e) => !e.data.draft)).sort(
+  (a, b) => b.data.publishedDate.valueOf() - a.data.publishedDate.valueOf(),
+);
+---
+<BaseLayout
+  title="Annotated Papers — Chris Hayduk"
+  description="Walkthrough-style annotations of research papers worth reading deeply."
+>
+  <section class="landing">
+    <h1>Annotated Papers</h1>
+    <p class="landing-lede">
+      Line-by-line walkthroughs of research papers, with runnable code and interactive figures.
+      In the tradition of <a href="https://nlp.seas.harvard.edu/annotated-transformer/">The Annotated Transformer</a>.
+    </p>
+
+    {entries.length === 0 ? (
+      <p class="landing-empty">No papers yet. First one up: AlphaFold2.</p>
+    ) : (
+      <ul class="paper-list">
+        {entries.map((entry) => (
+          <li>
+            <a href={`/${entry.data.slug}`}>
+              <h2>{entry.data.title}</h2>
+              <p class="paper-list-sub">
+                {entry.data.authors.join(', ')} · {entry.data.paperYear}
+                {entry.data.venue && <> · {entry.data.venue}</>}
+              </p>
+              <p class="paper-list-desc">{entry.data.description}</p>
+            </a>
+          </li>
+        ))}
+      </ul>
+    )}
+  </section>
+</BaseLayout>
+
+<style>
+  .landing {
+    max-width: 56rem;
+    margin-inline: auto;
+    padding: 3.5rem 1.5rem;
+  }
+  .landing h1 { font-size: 2.25rem; font-weight: 500; margin: 0 0 0.75rem; letter-spacing: -0.01em; }
+  .landing-lede { color: var(--fg-muted); font-size: 1.0625rem; line-height: 1.55; margin: 0 0 2.5rem; max-width: 48ch; }
+  .landing-empty { color: var(--fg-muted); font-style: italic; }
+  .paper-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 1.5rem; }
+  .paper-list a { text-decoration: none; color: var(--fg); display: block; padding: 1.25rem; border: 1px solid var(--rule); border-radius: 4px; transition: border-color 120ms ease; }
+  .paper-list a:hover { border-color: var(--fg-muted); }
+  .paper-list h2 { margin: 0 0 0.35rem; font-size: 1.25rem; font-weight: 500; }
+  .paper-list-sub { font-family: var(--font-sans); font-size: 0.85rem; color: var(--fg-muted); margin: 0 0 0.5rem; }
+  .paper-list-desc { margin: 0; color: var(--fg); font-size: 0.95rem; line-height: 1.5; }
+</style>

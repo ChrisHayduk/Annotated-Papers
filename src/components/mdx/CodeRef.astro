@@ -1,0 +1,27 @@
+---
+import { resolveRepoUrl } from '../../lib/snippets.ts';
+
+interface Props {
+  file: string;
+  lines?: string;
+  symbol?: string;
+}
+const { file, lines, symbol } = Astro.props;
+const href = resolveRepoUrl(file, lines);
+const label = symbol ?? (lines ? `${file}:${lines}` : file);
+---
+<a class="code-ref" href={href} target="_blank" rel="noopener" title={`${file}${lines ? ':' + lines : ''}`}>
+  <code>{label}</code>
+</a>
+
+<style>
+  .code-ref { text-decoration: none; }
+  .code-ref code {
+    padding: 0.05em 0.3em;
+    border: 1px solid var(--rule);
+    border-radius: 3px;
+    background: transparent;
+    font-size: 0.85em;
+  }
+  .code-ref:hover code { border-color: var(--fg-muted); }
+</style>

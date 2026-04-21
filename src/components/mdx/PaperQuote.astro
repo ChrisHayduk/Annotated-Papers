@@ -1,0 +1,17 @@
+---
+interface Props {
+  source?: string;
+  section?: string;
+  page?: number | string;
+}
+const { source, section, page } = Astro.props;
+const parts: string[] = [];
+if (source) parts.push(source);
+if (section) parts.push(`§${section}`);
+if (page !== undefined) parts.push(`p.${page}`);
+const citation = parts.join(', ');
+---
+<blockquote class="paper-quote">
+  <slot />
+  {citation && <cite>— {citation}</cite>}
+</blockquote>

@@ -1,0 +1,3 @@
+[submodule "vendor/min-AlphaFold"]
+	path = vendor/min-AlphaFold
+	url = https://github.com/ChrisHayduk/minAlphaFold2

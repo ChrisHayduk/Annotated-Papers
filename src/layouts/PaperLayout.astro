@@ -1,0 +1,104 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import PaperHeader from '../components/paper/PaperHeader.astro';
+import TOC from '../components/paper/TOC.astro';
+
+interface Heading {
+  depth: number;
+  slug: string;
+  text: string;
+}
+
+interface PaperFrontmatter {
+  slug: string;
+  title: string;
+  subtitle?: string;
+  authors: string[];
+  annotator: string;
+  paperYear: number;
+  arxivId?: string;
+  doi?: string;
+  venue?: string;
+  publishedDate: Date;
+  updatedDate?: Date;
+  tags: string[];
+  readingTimeMinutes?: number;
+  description: string;
+  heroFigure?: string;
+  referenceRepo?: { url: string; commit: string };
+}
+
+interface Props {
+  frontmatter: PaperFrontmatter;
+  headings: Heading[];
+}
+
+const { frontmatter, headings } = Astro.props;
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'ScholarlyArticle',
+  headline: frontmatter.title,
+  datePublished: frontmatter.publishedDate.toISOString(),
+  dateModified: (frontmatter.updatedDate ?? frontmatter.publishedDate).toISOString(),
+  author: { '@type': 'Person', name: frontmatter.annotator, url: 'https://chrishayduk.com' },
+  about: frontmatter.authors.map((a) => ({ '@type': 'Person', name: a })),
+  description: frontmatter.description,
+  inLanguage: 'en',
+  isBasedOn: frontmatter.doi ? `https://doi.org/${frontmatter.doi}` : frontmatter.arxivId ? `https://arxiv.org/abs/${frontmatter.arxivId}` : undefined,
+};
+---
+
+<BaseLayout
+  title={`${frontmatter.title} — Annotated Papers`}
+  description={frontmatter.description}
+  ogImage={`/og/${frontmatter.slug}.png`}
+  jsonLd={jsonLd}
+>
+  <div class="paper-shell">
+    <aside class="paper-toc-column" aria-label="Table of contents">
+      <TOC headings={headings} />
+    </aside>
+    <article class="prose">
+      <PaperHeader frontmatter={frontmatter} />
+      <slot />
+    </article>
+    <aside class="paper-gutter-right" aria-hidden="true"></aside>
+  </div>
+</BaseLayout>
+
+<style is:global>
+  .paper-shell {
+    max-width: 96rem;
+    margin-inline: auto;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    padding-inline: 0;
+  }
+  @media (min-width: 1024px) {
+    .paper-shell {
+      grid-template-columns: 16rem minmax(0, 1fr) 4rem;
+    }
+  }
+  @media (min-width: 1200px) {
+    .paper-shell {
+      grid-template-columns: 16rem minmax(0, 1fr) 19rem;
+    }
+  }
+  .paper-toc-column {
+    display: none;
+  }
+  @media (min-width: 1024px) {
+    .paper-toc-column {
+      display: block;
+      position: sticky;
+      top: 0;
+      align-self: start;
+      max-height: 100dvh;
+      overflow-y: auto;
+      padding: 2.5rem 1rem 2.5rem 1.25rem;
+    }
+  }
+  .paper-gutter-right { display: none; }
+  @media (min-width: 1024px) { .paper-gutter-right { display: block; } }
+</style>

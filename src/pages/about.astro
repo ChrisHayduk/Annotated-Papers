@@ -1,0 +1,27 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+<BaseLayout
+  title="About — Annotated Papers"
+  description="What this site is and how to read it."
+>
+  <article class="prose">
+    <h1>About</h1>
+    <p>
+      This site hosts line-by-line annotations of research papers I've found worth
+      understanding deeply. Each post interleaves the paper's prose, the relevant
+      math, and a faithful minimal implementation of the algorithm —
+      in the tradition of
+      <a href="https://nlp.seas.harvard.edu/annotated-transformer/">The Annotated Transformer</a>.
+    </p>
+    <p>
+      Code blocks come from minimal reimplementations whose source lives alongside
+      the post, pinned to a specific commit so you can always read the exact
+      version the annotation describes. Every annotation is written by a human and
+      can be followed end-to-end by running the referenced code locally.
+    </p>
+    <p>
+      — <a href="https://chrishayduk.com">Chris Hayduk</a>
+    </p>
+  </article>
+</BaseLayout>

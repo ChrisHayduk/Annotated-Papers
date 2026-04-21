@@ -1,0 +1,16 @@
+---
+type Variant = 'info' | 'warning' | 'aside' | 'math-hint';
+interface Props {
+  variant?: Variant;
+  title?: string;
+}
+const { variant = 'info', title } = Astro.props;
+---
+<div class="callout" data-variant={variant}>
+  {title && <p class="callout-title"><strong>{title}</strong></p>}
+  <slot />
+</div>
+
+<style>
+  .callout-title { margin: 0 0 0.4rem; font-family: var(--font-sans); font-size: 0.85rem; }
+</style>
