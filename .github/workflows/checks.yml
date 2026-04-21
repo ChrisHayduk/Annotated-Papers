@@ -13,13 +13,16 @@ jobs:
         with:
           submodules: recursive
 
+      # Match the Cloudflare Pages build environment exactly, so anything that
+      # passes CI is guaranteed to pass in deploy. Bump both versions here and
+      # in Cloudflare's env vars in lockstep.
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 10.28.1
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24.10.0
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
