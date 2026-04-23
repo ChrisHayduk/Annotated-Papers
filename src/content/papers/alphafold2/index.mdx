@@ -42,70 +42,35 @@ import EvoformerDiagram from '../../../components/mdx/EvoformerDiagram.astro';
 import AF2ArchitectureOverview from '../../../components/mdx/AF2ArchitectureOverview.astro';
 
 <EditorialNote>
-  Biology is the domain where AI progress is most likely to matter for human
-  flourishing in the most direct way: better medicines, better diagnostics,
-  better protein and enzyme design, better basic science, and, eventually,
-  a much deeper ability to intervene on disease. And yet, relative to large
-  language models or image generation models, biological AI has shockingly
-  little in the way of clear pedagogical material. If you want to learn how
-  GPT-style models work, you can find dozens of high-quality walkthroughs,
-  annotated implementations, toy models, lectures, and blog posts. If you want
-  to understand AlphaFold2 from the bottom up, the path is much murkier.
+  AI x biology should be one of the most important technical fields of the next
+  decade: the path to better medicines, better diagnostics, better protein and
+  enzyme design, and a much deeper ability to intervene on disease. And yet the
+  path into the field is still strangely illegible. Compared with LLMs, coding
+  agents, or image generation models, biological AI has very few clear
+  walkthroughs, minimal implementations, or pedagogical codebases.
 
-  I think this matters much more than it may appear at first glance. A lack of
-  legible educational resources does not just make the field slightly more
-  annoying to learn. It changes where talent allocates. Smart engineers and
-  researchers who might otherwise work on AI x biology instead drift toward
-  more legible areas like LLMs, coding agents, diffusion models, and image or
-  video generation. Those areas have clearer entry points, clearer open-source
-  reference implementations, and a much more obvious path from "I am curious"
-  to "I can build something real here."
+  This matters because talent flows toward legible fields. When the path into
+  biological AI is harder to see, fewer engineers and researchers enter it,
+  which means fewer projects, fewer companies, less venture funding, and slower
+  downstream medical innovation. This site is my attempt to make that path more
+  legible by pairing important biological AI papers with runnable,
+  paper-aligned implementations.
 
-  That first-order talent-allocation effect then has second-order consequences:
-  fewer people entering biological AI, fewer research projects, fewer weird
-  prototypes, fewer companies, less venture funding, and, ultimately, slower
-  downstream medical innovation. This is a bad equilibrium. AI x biology is
-  ridiculously important, but the path into the field is still far less
-  legible than it should be.
+  The right place to start is AlphaFold2. It was the first major deep learning
+  breakthrough in biology and, in my view, probably the second most important
+  deep learning model in history after GPT-3. It changed structural biology,
+  won the Nobel Prize, and became the root node for much of what followed. Once
+  you understand AlphaFold2, later papers become much easier to place: some
+  modify its MSA machinery, some replace it with protein language models, some
+  extend the structure module, and some broaden the task from structure
+  prediction to sequence-structure-function modeling.
 
   So I wrote **[minAlphaFold2](https://github.com/ChrisHayduk/minAlphaFold2)**:
-  a pedagogical PyTorch reimplementation of AlphaFold2 designed, from the first
-  line, to be read alongside the paper. It is roughly 9,100 lines across 17
-  modules. Variable names match the paper's notation. Comments cite the
-  supplement's algorithm numbers inline. Roughly 95% of the paper is
-  implemented; the main omission is self-distillation, which I will be very
-  explicit about in §13. The repo currently has 163 passing tests covering
-  shapes, loss values, data plumbing, and the training loop end-to-end.
-
-  The goal is to make AlphaFold2 legible in the same way that projects like
-  Andrej Karpathy's [minGPT](https://github.com/karpathy/minGPT) made GPT-style
-  models legible. In particular, minAlphaFold2 aims to give readers a
-  one-to-one mapping between the 62-page AlphaFold2 supplement and runnable
-  code, so you can understand exactly how this Nobel-Prize-winning model is
-  implemented. The supplement gives you the real machine: algorithms,
-  diagrams, loss definitions, training details, and implementation-level
-  pseudocode. The missing piece was a codebase that let you hold the supplement
-  in one hand and the implementation in the other.
-
-  So why start with AlphaFold2 specifically? Because AlphaFold2 was the first
-  major deep learning breakthrough in biology and, in my view, probably the
-  second most important deep learning model in history after GPT-3. It did not
-  merely improve a benchmark; it changed structural biology. Starting here lets
-  us study one of the most important models ever built, while also starting at
-  the beginning of the modern biological AI story. Once you understand
-  AlphaFold2, the later papers become much easier to place: some modify the MSA
-  machinery, some replace it with protein language models, some extend the
-  structure module, some broaden the task from structure prediction to
-  sequence-structure-function modeling. AlphaFold2 is the root node you want in
-  your head before trying to understand the branches.
-
-  This article is the other half of that project. The goal is to walk through
-  the AlphaFold2 paper section by section, but always with runnable code in
-  view. Every major algorithmic claim below is tied back to the local
-  minAlphaFold2 implementation pinned by this site. No pseudocode shortcuts,
-  no "the paper probably means this" hand-waving. We will start with the
-  biology, then work through the input features, Evoformer, recycling,
-  Structure Module, auxiliary heads, losses, and training loop.
+  a pedagogical PyTorch reimplementation designed to be read alongside the
+  62-page AlphaFold2 supplement. Variable names match the paper's notation,
+  comments cite the supplement's algorithm numbers inline, and every major
+  component below is tied back to runnable code. The goal is not production
+  deployment. The goal is understanding.
 
   If you'd like to follow along locally, clone the repo and run `pip install -e
   .`. The `scripts/overfit_single_pdb.py` trainer runs on a laptop CPU and
