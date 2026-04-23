@@ -43,6 +43,10 @@ type Trajectory = {
 
 const DATA_ROOT = '/af2-demo/alphafold2';
 
+async function load3Dmol() {
+  return import('3dmol/build/3Dmol.es6-min.js');
+}
+
 export default function StructureViewer() {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const viewerRef = useRef<any>(null);
@@ -93,9 +97,8 @@ export default function StructureViewer() {
     let cancelled = false;
     (async () => {
       try {
-        const mod: any = await import('3dmol');
+        const $3Dmol = await load3Dmol();
         if (cancelled || !containerRef.current) return;
-        const $3Dmol = mod.default ?? mod;
         const bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#14161a';
         const viewer = $3Dmol.createViewer(containerRef.current, {
           backgroundColor: bg,
@@ -166,12 +169,17 @@ export default function StructureViewer() {
   }, [playing, trajectory]);
 
   if (error) {
+    const isViewerError = error.startsWith('Failed to load 3Dmol');
     return (
       <figure className="sv-root">
         <div className="sv-error">
-          Could not load trajectory: <code>{error}</code>. The demo data lives under
-          <code>public/af2-demo/alphafold2/</code> — regenerate it with
-          <code>python scripts/build_af2_demo.py</code>.
+          Could not load {isViewerError ? '3D viewer' : 'trajectory'}: <code>{error}</code>.
+          {!isViewerError && (
+            <>
+              {' '}The demo data lives under <code>public/af2-demo/alphafold2/</code> —
+              regenerate it with <code>python scripts/build_af2_demo.py</code>.
+            </>
+          )}
         </div>
       </figure>
     );

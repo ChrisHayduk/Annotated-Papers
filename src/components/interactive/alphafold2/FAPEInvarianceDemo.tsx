@@ -52,20 +52,46 @@ function buildTrueChain(): THREE.Vector3[] {
   return pts;
 }
 
-// Build a local frame at residue i from positions [i-1, i, i+1] using the
-// same Gram–Schmidt pattern the real rigid_frame_from_three_points uses.
-// Returns [R, t] where R is a 3x3 rotation matrix and t is the origin.
+// Build a local frame at residue i using only coordinates from the chain.
+// The real AF2 frame uses N, Cα, and C, which are non-collinear by chemistry.
+// This demo only has one point per residue, so the endpoint "prev/current/next"
+// construction would be degenerate. Instead, choose a tangent for x and then
+// search nearby residues for a non-collinear plane vector. This is still built
+// entirely from structure coordinates, so it rotates/translates equivariantly.
 function frameAt(chain: THREE.Vector3[], i: number): { R: THREE.Matrix3; t: THREE.Vector3 } {
-  const prev = i === 0 ? chain[i].clone().sub(chain[i + 1]).add(chain[i]) : chain[i - 1];
   const here = chain[i];
-  const next = i === chain.length - 1
-    ? chain[i].clone().sub(chain[i - 1]).add(chain[i])
-    : chain[i + 1];
+  const xVector = i === chain.length - 1
+    ? here.clone().sub(chain[i - 1])
+    : chain[i + 1].clone().sub(here);
+  const xAxis = xVector.normalize();
 
-  const xAxis = next.clone().sub(here).normalize();
-  const yRaw = prev.clone().sub(here);
-  const yAxis = yRaw.clone().sub(xAxis.clone().multiplyScalar(yRaw.dot(xAxis))).normalize();
+  const candidateIndices = [
+    i - 1,
+    i + 1,
+    i - 2,
+    i + 2,
+    0,
+    chain.length - 1,
+    Math.floor(chain.length / 2),
+  ];
+
+  let yAxis: THREE.Vector3 | null = null;
+  for (const candidateIndex of candidateIndices) {
+    if (candidateIndex < 0 || candidateIndex >= chain.length || candidateIndex === i) continue;
+    const yRaw = chain[candidateIndex].clone().sub(here);
+    const yProjected = yRaw.sub(xAxis.clone().multiplyScalar(yRaw.dot(xAxis)));
+    if (yProjected.lengthSq() > 1e-10) {
+      yAxis = yProjected.normalize();
+      break;
+    }
+  }
+
+  if (!yAxis) {
+    throw new Error('Could not construct a non-degenerate local frame for FAPE demo');
+  }
+
   const zAxis = new THREE.Vector3().crossVectors(xAxis, yAxis).normalize();
+  yAxis = new THREE.Vector3().crossVectors(zAxis, xAxis).normalize();
 
   const R = new THREE.Matrix3();
   // Columns are (xAxis, yAxis, zAxis).
@@ -130,8 +156,17 @@ export default function FAPEInvarianceDemo() {
 
   const truth = useMemo(() => buildTrueChain(), []);
 
-  // Build the predicted chain from truth + (global rotation) + (local perturb).
+  // Build the predicted chain as:
+  //   1. a local structural perturbation in the prediction's own frame;
+  //   2. a global rigid rotation of the entire perturbed prediction.
+  // This ordering keeps FAPE flat as the global-rotation slider moves, even
+  // when the local perturbation is nonzero.
   const pred = useMemo(() => {
+    const perturbed = truth.map((p) => p.clone());
+    const k = 8;
+    const dir = new THREE.Vector3(0.0, 1.0, 0.5).normalize();
+    perturbed[k].add(dir.multiplyScalar(perturb));
+
     const rotRad = (rotDeg * Math.PI) / 180;
     const rotMat = new THREE.Matrix3().set(
       Math.cos(rotRad),  0, Math.sin(rotRad),
@@ -141,18 +176,11 @@ export default function FAPEInvarianceDemo() {
     // Center of rotation: centroid of truth chain so rotation happens in place.
     const centroid = truth.reduce((acc, p) => acc.add(p), new THREE.Vector3()).multiplyScalar(1 / truth.length);
 
-    const out: THREE.Vector3[] = truth.map((p) => {
+    return perturbed.map((p) => {
       const v = p.clone().sub(centroid);
       v.applyMatrix3(rotMat);
       return v.add(centroid);
     });
-
-    // Local perturbation: push residue k along a fixed direction. k = 8
-    // (middle of chain). Direction = (0, 1, 0.5) normalized.
-    const k = 8;
-    const dir = new THREE.Vector3(0.0, 1.0, 0.5).normalize();
-    out[k].add(dir.multiplyScalar(perturb));
-    return out;
   }, [truth, rotDeg, perturb]);
 
   const losses = useMemo(() => {
@@ -253,7 +281,7 @@ export default function FAPEInvarianceDemo() {
                 aria-label="Local perturbation on a single residue of the prediction"
               />
               <div className="fape-slider-caption">
-                pushes one residue off its true position along a fixed direction
+                pushes one residue off its true position before the global rigid motion
               </div>
             </label>
             <button

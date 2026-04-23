@@ -57,6 +57,10 @@ interface CoevolData {
 
 const DATA_URL = '/co-evolution/trypsin.json';
 
+async function load3Dmol() {
+  return import('3dmol/build/3Dmol.es6-min.js');
+}
+
 // Presets picked from the top-L coupling list. `i` and `j` are 1-indexed
 // alignment columns; `label` / `subtitle` describe the pair using the
 // PDB's residue numbering (which is what anyone reading a DCA or
@@ -744,8 +748,7 @@ function StructurePanel({
     (async () => {
       if (!containerRef.current) return;
       try {
-        const mod: any = await import('3dmol');
-        const $3Dmol = mod.default ?? mod;
+        const $3Dmol = await load3Dmol();
         if (cancelled) return;
         const viewer = $3Dmol.createViewer(containerRef.current, {
           backgroundColor: 'rgb(24,24,28)',

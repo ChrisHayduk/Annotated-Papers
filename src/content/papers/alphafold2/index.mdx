@@ -16,7 +16,7 @@ description: An annotated walkthrough of AlphaFold2 — Evoformer, Invariant Poi
 readingTimeMinutes: 90
 referenceRepo:
   url: https://github.com/ChrisHayduk/minAlphaFold2
-  commit: 1aa629bef31300b0f9bc32235bfe8f95a8ff09e6
+  commit: 7e3e6d4f4c050391438450e9b7a361490b49f90e
 draft: false
 ---
 
@@ -42,69 +42,105 @@ import EvoformerDiagram from '../../../components/mdx/EvoformerDiagram.astro';
 import AF2ArchitectureOverview from '../../../components/mdx/AF2ArchitectureOverview.astro';
 
 <EditorialNote>
-  Over the past couple of years, I've been on a [journey](https://chrishayduk.com)
-  to understand protein language models — what they actually learn, how they
-  work, and why they represent one of the two largest breakthroughs in the
-  history of AI (alongside GPT-3-style language models). Along the way, I
-  wrote **[minAlphaFold2](https://github.com/ChrisHayduk/minAlphaFold2)**, a
-  pedagogical PyTorch reimplementation of AlphaFold2 designed, from the first
-  line, to be readable alongside the paper. Roughly 8,000 lines across 17
-  modules. Variable names that match the paper's notation. Comments that cite
-  the supplement's algorithm numbers inline. Roughly 95% of the paper
-  implemented (the main omission is self-distillation — I'll be honest about
-  that in §13). 130 passing tests that cover shapes, loss values, and the
-  training loop end-to-end.
+  Biology is the domain where AI progress is most likely to matter for human
+  flourishing in the most direct way: better medicines, better diagnostics,
+  better protein and enzyme design, better basic science, and, eventually,
+  a much deeper ability to intervene on disease. And yet, relative to large
+  language models or image generation models, biological AI has shockingly
+  little in the way of clear pedagogical material. If you want to learn how
+  GPT-style models work, you can find dozens of high-quality walkthroughs,
+  annotated implementations, toy models, lectures, and blog posts. If you want
+  to understand AlphaFold2 from the bottom up, the path is much murkier.
 
-  The inspiration for minAlphaFold2 was twofold. First, the AlphaFold2
-  supplementary paper is, in my view, one of the cleanest pieces of technical
-  writing in modern AI — 62 pages of pseudocode, diagrams, and prose that
-  essentially demands a clear code counterpart. Second, Andrej Karpathy's
-  [minGPT](https://github.com/karpathy/minGPT) showed what a pedagogical
-  reimplementation could look like for GPT. The pedagogical material
-  available for AF2 was essentially non-existent by comparison, and I wanted
-  to do a small part in changing that.
+  I think this matters much more than it may appear at first glance. A lack of
+  legible educational resources does not just make the field slightly more
+  annoying to learn. It changes where talent allocates. Smart engineers and
+  researchers who might otherwise work on AI x biology instead drift toward
+  more legible areas like LLMs, coding agents, diffusion models, and image or
+  video generation. Those areas have clearer entry points, clearer open-source
+  reference implementations, and a much more obvious path from "I am curious"
+  to "I can build something real here."
 
-  This annotation is the other half of that work: a guided walkthrough of the
-  repo that explains *why* each piece looks the way it does, one section of
-  the paper at a time. The prose follows AlphaFold2 section by section, but
-  every algorithmic claim is tied back to real, runnable code — specifically,
-  the code that lives in minAlphaFold2 at the pinned commit this site builds
-  against. No pseudocode shortcuts, no hand-waving about what the paper
-  "probably" means.
+  That first-order talent-allocation effect then has second-order consequences:
+  fewer people entering biological AI, fewer research projects, fewer weird
+  prototypes, fewer companies, less venture funding, and, ultimately, slower
+  downstream medical innovation. This is a bad equilibrium. AI x biology is
+  ridiculously important, but the path into the field is still far less
+  legible than it should be.
 
-  If you'd like to follow along, clone the repo and `pip install -e .`. The
-  `scripts/overfit_single_pdb.py` trainer runs on a laptop CPU and takes a
-  small protein from random-init to ~2 Å Cα RMSD in about thirty seconds.
-  We'll walk through that exact run, step by step, in §14. Let's dive in!
+  So I wrote **[minAlphaFold2](https://github.com/ChrisHayduk/minAlphaFold2)**:
+  a pedagogical PyTorch reimplementation of AlphaFold2 designed, from the first
+  line, to be read alongside the paper. It is roughly 9,100 lines across 17
+  modules. Variable names match the paper's notation. Comments cite the
+  supplement's algorithm numbers inline. Roughly 95% of the paper is
+  implemented; the main omission is self-distillation, which I will be very
+  explicit about in §13. The repo currently has 163 passing tests covering
+  shapes, loss values, data plumbing, and the training loop end-to-end.
+
+  The goal is to make AlphaFold2 legible in the same way that projects like
+  Andrej Karpathy's [minGPT](https://github.com/karpathy/minGPT) made GPT-style
+  models legible. In particular, minAlphaFold2 aims to give readers a
+  one-to-one mapping between the 62-page AlphaFold2 supplement and runnable
+  code, so you can understand exactly how this Nobel-Prize-winning model is
+  implemented. The supplement gives you the real machine: algorithms,
+  diagrams, loss definitions, training details, and implementation-level
+  pseudocode. The missing piece was a codebase that let you hold the supplement
+  in one hand and the implementation in the other.
+
+  So why start with AlphaFold2 specifically? Because AlphaFold2 was the first
+  major deep learning breakthrough in biology and, in my view, probably the
+  second most important deep learning model in history after GPT-3. It did not
+  merely improve a benchmark; it changed structural biology. Starting here lets
+  us study one of the most important models ever built, while also starting at
+  the beginning of the modern biological AI story. Once you understand
+  AlphaFold2, the later papers become much easier to place: some modify the MSA
+  machinery, some replace it with protein language models, some extend the
+  structure module, some broaden the task from structure prediction to
+  sequence-structure-function modeling. AlphaFold2 is the root node you want in
+  your head before trying to understand the branches.
+
+  This article is the other half of that project. The goal is to walk through
+  the AlphaFold2 paper section by section, but always with runnable code in
+  view. Every major algorithmic claim below is tied back to the local
+  minAlphaFold2 implementation pinned by this site. No pseudocode shortcuts,
+  no "the paper probably means this" hand-waving. We will start with the
+  biology, then work through the input features, Evoformer, recycling,
+  Structure Module, auxiliary heads, losses, and training loop.
+
+  If you'd like to follow along locally, clone the repo and run `pip install -e
+  .`. The `scripts/overfit_single_pdb.py` trainer runs on a laptop CPU and
+  takes a small protein from random initialization to roughly 2 Å Cα RMSD in
+  about thirty seconds. We'll walk through that exact run in §14. Let's dive
+  in.
 </EditorialNote>
 
 ## 0. Prelims
 
-Before we start, let's do a quick orientation to **minAlphaFold2** — the reference codebase this annotation walks through — and the conventions we'll use throughout.
+Before we start, let's orient ourselves to **minAlphaFold2**, the reference codebase this annotation walks through, and to the conventions I will use throughout the piece.
 
-The goal of minAlphaFold2 was to make AlphaFold2 legible. The full DeepMind implementation is roughly 50k lines of JAX spread across a dense internal production codebase; minAlphaFold is ~8k lines of pure PyTorch written specifically to be read alongside the paper. Every design decision in the repo is downstream of that goal:
+The goal of minAlphaFold2 is simple: make AlphaFold2 legible. The full DeepMind implementation is a production-oriented JAX codebase; minAlphaFold2 is a much smaller pure-PyTorch implementation written specifically to be read against the paper. Every design decision in the repo follows from that goal:
 
-**Variable names follow the paper.** `m` is the MSA representation, shape $(s, r, c_m)$, where $s$ is the number of sequences, $r$ is the number of residues, and $c_m$ is the channel dimension. `z` is the pair representation, shape $(r, r, c_z)$. `s_i` is the single representation in the Structure Module. `T_i` is a rigid frame. If you have the paper open in a tab, you can cross-reference any tensor in the code directly against its symbol in the supplement.
+**Variable names follow the paper.** `m` is the MSA representation, with shape $(s, r, c_m)$, where $s$ is the number of sequences, $r$ is the number of residues, and $c_m$ is the channel dimension. `z` is the pair representation, with shape $(r, r, c_z)$. `s_i` is the single representation in the Structure Module. `T_i` is a rigid frame. If you have the supplement open, you should be able to move from symbol to code without doing a translation step in your head.
 
-**Algorithms are annotated inline.** Every class and function in minAlphaFold cites the supplement algorithm it implements — comments like `# Algorithm 7` appear right above the forward method. When I say "Algorithm 7" below, you can grep for it in the repo and land on the corresponding class. Shapes are asserted at every forward pass, and the tests run those assertions end-to-end.
+**Algorithms are annotated inline.** Every major class and function in minAlphaFold2 cites the supplement algorithm it implements. Comments like `# Algorithm 7` appear right above the relevant forward method. When I say "Algorithm 7" below, you can grep for it in the repo and land on the corresponding code. Shapes are asserted throughout the forward pass, and the tests exercise those assertions end-to-end.
 
 **Three config profiles** live under `configs/`:
 
-- `tiny.toml` — about 1M parameters, CPU-runnable, good for unit tests and for the overfit walkthrough in §14.
+- `tiny.toml` — about 90k parameters, CPU-runnable, good for unit tests and for the overfit walkthrough in §14.
 - `medium.toml` — for overfit experiments on a single GPU.
 - `alphafold2.toml` — the full 48-block, paper-spec config.
 
-The walkthrough below will mostly stay in the abstract, but when we get to the real example in §14, we'll load `tiny.toml` and watch the structure module actually converge.
+The walkthrough below will mostly stay at the level of the architecture, but when we get to the concrete example in §14, we'll load `tiny.toml` and watch the Structure Module actually converge on a real protein.
 
 ## 1. Background
 
-AlphaFold2 was not the first deep-learning approach to protein structure prediction, but it was the first one that *worked* — at least in the sense of producing structures accurate enough to replace an experimental method for a large fraction of proteins. The reasons it worked have more to do with how biology is arranged than with any single architectural trick, so it's worth starting there.
+AlphaFold2 was not the first deep-learning approach to protein structure prediction, but it was the first one that really *worked* in the sense that matters: it produced structures accurate enough to replace experimental structure determination for a large fraction of proteins. To understand why it worked, we need to start with the biology rather than with the architecture, because the architecture only makes sense once you understand the particular statistical structure the model is exploiting.
 
 ### 1.1 The folding problem
 
-A protein is a chain of amino acids. There are 20 of them (22 in nature, 20 in the human body), each a small organic molecule with a common backbone and a distinct side chain. The cell transcribes DNA into RNA and translates RNA into a chain of these amino acids — a sequence, essentially a string over a 20-letter alphabet. That's the **primary structure**.
+A protein is a chain of amino acids. There are 20 canonical amino acids in human proteins, each a small organic molecule with a shared backbone and a distinct side chain. The cell transcribes DNA into RNA and then translates RNA into a chain of these amino acids. At this level, a protein is just a sequence: a string over a roughly 20-letter alphabet. This is the **primary structure**.
 
-The primary structure then folds, under thermodynamic constraints, into a specific three-dimensional shape — the **tertiary structure**. That shape is what the protein *does*: the arrangement of side chains in 3D determines which other molecules it binds, which reactions it catalyzes, which signals it transduces. In other words, function follows structure, and structure follows sequence.
+The primary structure then folds, under thermodynamic constraints, into a specific three-dimensional shape: the **tertiary structure**. That shape is what the protein *does*. The arrangement of side chains in 3D determines which molecules it binds, which reactions it catalyzes, and which signals it transduces. In other words, function follows structure, and structure follows sequence.
 
 <Sidenote>
   Anfinsen showed this experimentally in 1961 by denaturing ribonuclease A and
@@ -112,15 +148,15 @@ The primary structure then folds, under thermodynamic constraints, into a specif
   Prize followed in 1972.
 </Sidenote>
 
-The **folding problem** is the problem of going from sequence to structure computationally. It turns out to be hard for a reason that Cyrus Levinthal pointed out in 1969: a sequence of length 100 has something like $3^{100}$ possible conformations if each residue has three rotational states. You cannot brute-force the search. And yet, somehow, proteins fold on millisecond timescales inside cells, reliably and reproducibly. The answer has to be that the landscape is biased — that proteins don't sample uniformly but are instead funneled, by the physics of their interactions, toward a single energy minimum.
+The **folding problem** is the problem of going from sequence to structure computationally. It is hard for the reason Cyrus Levinthal pointed out in 1969: a sequence of length 100 has something like $3^{100}$ possible conformations if each residue has three rotational states. You cannot brute-force this search. And yet proteins fold on millisecond timescales inside cells, reliably and reproducibly. The only way this can happen is if the energy landscape is highly biased. Proteins are not sampling uniformly from all possible conformations; they are being funneled, by the physics of their interactions, toward a small set of low-energy structures.
 
-For the last 50 years, the field has tried to model that funnel directly — with physics simulations, statistical potentials, fragment libraries, and every kind of approximation in between. None of them worked well enough, at scale, to be useful. AlphaFold2 skipped the physics entirely and learned the funnel from data.
+For decades, the field tried to model that funnel directly through molecular dynamics, statistical potentials, fragment libraries, and many other approximations. These methods worked in pieces, but not well enough at proteome scale. AlphaFold2's core move was to stop trying to explicitly simulate the entire physical process and instead learn the shape of the funnel from data.
 
 ### 1.2 MSAs and evolutionary coupling
 
-The data, it turns out, is not just the target sequence itself. The key insight, which predates AlphaFold2 by decades, is that related proteins from different species share the same fold, and the mutations they accumulate over evolutionary time are not independent. When residues $i$ and $j$ are in contact in 3D, a mutation at $i$ that disrupts the contact exerts selection pressure for a compensating mutation at $j$. Over millions of years and thousands of species, that pressure leaves a statistical signature — namely, the columns for residues $i$ and $j$ in a multiple sequence alignment co-vary.
+The data, it turns out, is not just the target sequence itself. The key insight, which predates AlphaFold2 by decades, is that related proteins from different species tend to share the same fold, and the mutations they accumulate over evolutionary time are not independent. If residues $i$ and $j$ are in contact in 3D, then a mutation at $i$ that disrupts that contact creates selection pressure for a compensating mutation at $j$. Over millions of years and many species, that pressure leaves a statistical signature: the columns for residues $i$ and $j$ in a multiple sequence alignment co-vary.
 
-A multiple sequence alignment, or MSA, is exactly what it sounds like — take the target sequence, find a bunch of evolutionarily related sequences, and line them up so that homologous residues sit in the same column.
+A multiple sequence alignment, or MSA, is exactly what it sounds like: take the target sequence, find a large set of evolutionarily related sequences, and line them up so that homologous residues sit in the same column.
 
 <Figure caption="A 23-column window from a real cytochrome c MSA, anchored on the CXXCH heme-binding motif (highlighted). Sequences are mature proteins pulled from UniProt — H. sapiens (P99999), E. caballus (P00004), G. gallus (P67881), D. melanogaster Cyt c-2 (P84029), S. cerevisiae iso-1 (P00044) — and span roughly a billion years of divergence. The leading columns are gaps in the vertebrate rows because fly and yeast both carry N-terminal extensions that the vertebrate lineage has lost. The two cysteines and the histidine in CXXCH are invariant across every known cytochrome c — they covalently anchor the heme cofactor — and several other columns (11, 15, 21) are invariant too. That kind of conservation, and the correlated mutations it implies, is what AlphaFold2 will mine for evolutionary coupling.">
   <pre style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.7; padding: 0.95rem 1.1rem; border: 1px solid var(--rule); border-radius: 4px; overflow-x: auto; margin: 0;">
@@ -132,24 +168,11 @@ A multiple sequence alignment, or MSA, is exactly what it sounds like — take t
   </pre>
 </Figure>
 
-From an MSA, you can infer a lot. Column variation tells you which residues are conserved (evolution has decided they matter) and which are free to drift. Correlated columns tell you which residues are coupled — the hallmark of contact in 3D. Phylogenetic structure tells you which species the signal is coming from. This is why AlphaFold2 treats the MSA as a first-class input rather than as an ancillary feature.
+From an MSA, you can infer a surprising amount. Column variation tells you which residues are conserved, meaning evolution has decided they matter, and which residues are free to drift. Correlated columns tell you which residues are coupled, which is often the signature of contact in 3D. Phylogenetic structure tells you where the signal is coming from. This is why AlphaFold2 treats the MSA as a first-class input rather than as a side feature.
 
 That co-evolution-equals-contact claim deserves to be seen rather than asserted. The widget below lays out an MSA of about 2,000 serine proteases (Pfam PF00089, aligned with MAFFT), the standard contact-prediction heatmap (top-L coupled pairs in red vs. top-L real contacts in blue — the same evaluation format DCA papers use), and the real bovine β-trypsin structure (2PTN), all linked together. Click any cell, or pick a preset below, and the corresponding pair lights up in all three panels. Bright red cells are coupling predictions that landed on a true contact; faded red cells are false positives. The signal here is genuine — roughly a quarter of the top-L predictions are real contacts, several multiples of the random baseline. That's what AlphaFold2 inherits as raw material and sharpens with the Evoformer.
 
 <CoevolutionViewer client:visible />
-
-<EditorialNote>
-  Trypsin is the classical DCA benchmark (Morcos et al. 2011, Marks et al.
-  2011) for good reason — its family is large, phylogenetically diverse, and
-  its fold gives clean co-evolution signal. Cytochrome c, which we've been
-  using as the running example for MSAs, turns out to be a bad target for
-  this kind of pairwise statistical analysis: only about 34 effective
-  sequences after accounting for phylogenetic redundancy, which is far too
-  few. So the widget switches protein for this one demonstration. The
-  underlying claim is the same, and AlphaFold2 doesn't care about the
-  specific family — but if you want to *see* MSA signal with your own eyes,
-  serine proteases show it cleanly.
-</EditorialNote>
 
 AlphaFold2 builds its MSAs by searching four databases with two tools (HHBlits for sensitivity, JackHMMER for coverage):
 
@@ -179,21 +202,21 @@ AlphaFold2 builds its MSAs by searching four databases with two tools (HHBlits f
 
 ### 1.3 Templates
 
-Templates are the second source of prior knowledge AlphaFold2 uses. If an evolutionarily related protein already has a solved 3D structure — deposited in the Protein Data Bank — we can use its coordinates as a starting hint. AlphaFold2 finds up to four templates via HHSearch against PDB70, featurizes them into pair-like embeddings, and folds them into the same pipeline as the MSA.
+Templates are the second source of prior knowledge AlphaFold2 uses. If an evolutionarily related protein already has a solved 3D structure in the Protein Data Bank, its coordinates can be used as a hint. AlphaFold2 finds up to four templates via HHSearch against PDB70, converts them into pair-like embeddings, and injects them into the same broad pipeline as the MSA.
 
-In practice, templates matter less than you'd expect. For proteins with deep MSAs, templates add maybe a point or two of accuracy on average; for proteins with shallow MSAs, templates help a bit more. But the model works without them — in the ablations, the MSA is doing most of the heavy lifting. We'll treat templates as a detail of the input pipeline and cover them briefly in §8.
+In practice, templates matter less than one might have expected before AlphaFold2. They help, especially when evolutionary information is sparse, but the model does not depend on them in the way older template-based methods did. The MSA and the learned pair representation do most of the work. As such, we will treat templates as an important input-pipeline detail and cover them briefly in §8, rather than making them the center of the story.
 
 ### 1.4 Rigid frames and SE(3)
 
-The output of AlphaFold2 is a 3D structure, but the intermediate representation isn't quite Cartesian coordinates. Instead, each residue has an associated **local frame** — a position $t_i \in \mathbb{R}^3$ and a rotation $R_i \in \mathrm{SO}(3)$ that together specify a little coordinate system attached to the backbone. The whole structure is a sequence of these frames, one per residue.
+The output of AlphaFold2 is a 3D structure, but the most important intermediate object is not just a list of Cartesian coordinates. Instead, each residue has an associated **local frame**: a position $t_i \in \mathbb{R}^3$ and a rotation $R_i \in \mathrm{SO}(3)$ that together specify a small coordinate system attached to the backbone. The whole structure can then be represented as a sequence of these frames, one per residue.
 
-This matters for two reasons. First, frames are the natural object for expressing geometric invariances. The physics of protein folding doesn't care about the global position or orientation of the molecule — if you translate and rotate the entire structure, everything still works. That's SE(3) invariance, and any loss or model component that respects it has a much easier time generalizing than one that doesn't. Second, frames give you a way to express *local* geometry cleanly: the position of residue $j$ *as seen by residue $i$* is just $T_i^{-1} \cdot t_j$ — the translation $t_j$ expressed in residue $i$'s local coordinate system. That "as seen by" operation is the core of Invariant Point Attention, which we'll get to in §10.
+This matters for two reasons. First, frames are the natural object for expressing geometric invariances. The physics of protein folding does not care about the global position or orientation of the molecule. If you translate and rotate the entire structure, it is still the same protein. That is SE(3) invariance, and any loss or model component that respects it has a much easier problem than one that has to learn it from scratch. Second, frames give us a clean way to express *local* geometry. The position of residue $j$ *as seen by residue $i$* is just $T_i^{-1} \cdot t_j$, meaning the translation $t_j$ expressed in residue $i$'s local coordinate system. That "as seen by" operation is the core of Invariant Point Attention, which we'll get to in §10.
 
-For §§1–9, we mostly won't need to touch frames. They'll show up properly when we hit the Structure Module. But it's worth keeping in mind, when we're looking at the Evoformer updating an abstract pair representation $z$, that the whole apparatus is a wind-up — an elaborate way of preparing the inputs that the Structure Module will need in order to place atoms in space.
+For §§1–9, we mostly won't need to touch frames. They will show up properly when we reach the Structure Module. But it is worth keeping in mind, as we watch the Evoformer update an abstract pair representation $z$, that the whole upstream model is preparing the information the Structure Module will need in order to place atoms in space.
 
 ### 1.5 What AlphaFold2 changed
 
-Before diving in, it's useful to name what was actually new here. The rough outline of a contact-prediction-plus-folding pipeline had existed for years — run an MSA, extract co-evolution signals, predict a residue–residue contact map, then fold the protein by fragment assembly or distance-based minimization. AlphaFold1 was already doing something like that. The pieces AlphaFold2 added:
+Before diving into the implementation, it is useful to be explicit about what was actually new. The rough outline of a contact-prediction-plus-folding pipeline had existed for years: run an MSA, extract co-evolution signals, predict a residue-residue contact map, then fold the protein through fragment assembly or distance-based minimization. AlphaFold1 was already doing something in this family. AlphaFold2 changed the game by adding the following:
 
 1. **End-to-end training.** No separate "predict contacts, then fold" pipeline. The entire system, from MSA input to atom coordinates, is one computation graph with one loss.
 2. **The Evoformer.** A transformer-style stack that cross-attends between the MSA representation and the pair representation, letting each update the other over 48 blocks.
@@ -201,22 +224,22 @@ Before diving in, it's useful to name what was actually new here. The rough outl
 4. **FAPE loss.** A frame-aligned loss that measures error per-residue-frame rather than in a global coordinate system, giving every residue a local view of the structure it's trying to build.
 5. **Recycling.** A mechanism where the model's own output predictions get fed back as input for another forward pass, enabling iterative refinement at both train and test time.
 
-Each of these gets a section. The rest of the annotation is, essentially, a line-by-line tour of how these five ideas become executable PyTorch. Before we zoom in, here's the whole pipeline at a glance — three input modalities on the left, the two-stack Evoformer in the middle, the Structure Module turning representations into atoms, and a recycling loop wrapping the whole thing. Every box below points to the section where we'll open it up.
+Each of these gets its own section. The rest of this article is essentially a tour of how these five ideas become executable PyTorch. Before we zoom in, here is the full pipeline at a glance: three input modalities on the left, the two-stream Evoformer in the middle, the Structure Module turning representations into atoms, and a recycling loop wrapping the whole thing. Every box below points to the section where we will open it up.
 
 <AF2ArchitectureOverview />
 
 ## 2. Input representations
 
-AlphaFold2 takes in three kinds of raw data — the target sequence, the MSA, and the templates — and distills them into two working representations that flow through the rest of the network:
+At this point, we need to convert biology into tensors. AlphaFold2 takes in three kinds of raw data — the target sequence, the MSA, and the templates — and distills them into two working representations that flow through the rest of the network:
 
 - the **MSA representation** $m$, shape $(s, r, c_m)$, where $s$ is the number of sequences in the alignment and $r$ is the number of residues.
 - the **pair representation** $z$, shape $(r, r, c_z)$ — one embedding for every pair of residues in the target sequence.
 
-You can think of $m$ as "what we know about each residue, as seen through evolutionary history" and $z$ as "what we know about each pair of residues." The whole Evoformer is built around passing information back and forth between these two — using the pair representation to guide attention within the MSA, and using the MSA to refine the pair representation via the outer product mean. We'll get there.
+You can think of $m$ as "what we know about each residue, as seen through evolutionary history" and $z$ as "what we know about each pair of residues." The whole Evoformer is built around passing information back and forth between these two objects: using the pair representation to guide attention within the MSA, and using the MSA to refine the pair representation via the outer product mean. We'll get there shortly.
 
 ### 2.1 Building the features
 
-The feature builders that turn raw inputs (an integer-encoded sequence, a stack of aligned MSA sequences, a set of template structures) into embedding-ready tensors live in <CodeRef file="minalphafold/data.py" symbol="build_target_feat" />. They're mostly one-hot encoding and concatenation, but they matter because they fix what the network gets to see. The headliners:
+The feature builders that turn raw inputs — an integer-encoded sequence, a stack of aligned MSA sequences, and a set of template structures — into embedding-ready tensors live in <CodeRef file="minalphafold/data.py" symbol="build_target_feat" />. Most of this is one-hot encoding and concatenation. That may sound boring, but it matters because these feature tensors define what the network is allowed to know. The headliners are:
 
 - <CodeRef file="minalphafold/data.py" symbol="build_target_feat" /> takes the target integer-encoded sequence and produces a per-residue feature vector: a one-hot over the 21 amino-acid types (20 + unknown), plus a per-residue "deletion value" and a few binary flags. Dimension 22.
 - <CodeRef file="minalphafold/data.py" symbol="build_msa_feat" /> takes the full MSA and produces a $(s, r, 49)$ tensor — for each sequence and each residue, a one-hot over 23 MSA tokens (the 20 amino acids, plus gap, mask, and unknown), a cluster profile averaged across the sequences in that cluster, plus features recording which residues had gap deletions and how many. This is where evolutionary information enters the model.
@@ -224,50 +247,50 @@ The feature builders that turn raw inputs (an integer-encoded sequence, a stack 
 
 ### 2.2 The input embedder
 
-Once we have the feature tensors, the <CodeRef file="minalphafold/embedders.py" symbol="InputEmbedder" /> block projects them into $m$ and $z$ (Algorithm 3 of the supplement). The math is straightforward: three linear projections of the target features plus an outer-sum to produce a per-pair embedding for $z$; one linear projection of the MSA features to produce the first row of $m$; and a tile of the target features across all rows of $m$, added in.
+Once we have the feature tensors, the <CodeRef file="minalphafold/embedders.py" symbol="InputEmbedder" /> block projects them into $m$ and $z$ (Algorithm 3 of the supplement). The math is straightforward: three linear projections of the target features plus an outer-sum to produce a per-pair embedding for $z$; one linear projection of the MSA features to produce $m$; and a tiled copy of the target features added across all MSA rows.
 
 <Snippet file="minalphafold/embedders.py" symbol="InputEmbedder" />
 
-Two details are worth lingering on. First, the pair representation is initialized from an outer-sum of the target features, *not* from the MSA. The MSA features arrive later, via the outer-product mean inside the Evoformer. Right after the embedder, $z$ encodes nothing about co-evolution — it's a clean slate that the Evoformer will fill in. Second, the target features are tiled across *every* row of $m$, including rows corresponding to other MSA sequences. This is the model's way of telling each row "you are aligned to this target," which gives the row attention and column attention operations a shared coordinate system to reason in.
+Two details are worth lingering on. First, the pair representation is initialized from an outer-sum of the target features, *not* from the MSA. The MSA features arrive later through the outer product mean inside the Evoformer. Right after the embedder, $z$ does not yet know anything about co-evolution; it is a target-sequence scaffold that the Evoformer will fill in. Second, the target features are tiled across *every* row of $m$, including rows corresponding to other MSA sequences. This is the model's way of telling each row, "you are aligned to this target," which gives the row attention and column attention operations a shared coordinate system.
 
 ### 2.3 Relative position encoding
 
-The second piece of the input-embedding stage is the relative position encoding (Algorithm 4). Like the positional encoding in a vanilla Transformer, this tells the network where each residue sits in the chain — but AlphaFold2 encodes *relative* positions rather than absolute ones, which matches the physics (only relative positions along the chain affect structure) and generalizes better to lengths unseen at training time.
+The second piece of the input-embedding stage is the relative position encoding (Algorithm 4). Like the positional encoding in a vanilla Transformer, this tells the network where each residue sits in the chain. But AlphaFold2 encodes *relative* positions rather than absolute ones, which fits the problem better: what matters structurally is whether two residues are adjacent, nearby, or far apart along the chain, not their absolute index in some fixed-length array.
 
 <Snippet file="minalphafold/embedders.py" symbol="RelPos" />
 
-The encoding is a clipped one-hot over $(j - i)$ within a window of $\pm 32$ residues (anything further gets bucketed to the edges), followed by a linear projection to $c_z$. It gets added directly into $z$. Simple, but critical — without it, the pair representation has no notion of sequence adjacency, and the attention heads have to rediscover the chain from the pair features alone, which doesn't really work.
+The encoding is a clipped one-hot over $(j - i)$ within a window of $\pm 32$ residues. Anything further away gets bucketed to the edge bins. This one-hot vector is then linearly projected to $c_z$ and added directly into $z$. This is simple, but important. Without it, the pair representation has no built-in notion of sequence adjacency, and the model would have to rediscover the protein chain from the other pair features alone.
 
 ## 3. The Evoformer — bird's-eye view
 
-The Evoformer is the core of AlphaFold2. It's a stack of 48 identical blocks, each one taking an MSA representation $m$ and a pair representation $z$, applying a fixed sequence of updates, and passing the refined $(m, z)$ to the next block. By the end of the stack, $m$ and $z$ are both dense with structure-relevant information and ready for the Structure Module to consume.
+The Evoformer is the core of AlphaFold2. It is a stack of 48 blocks, each one taking an MSA representation $m$ and a pair representation $z$, applying a fixed sequence of updates, and passing the refined $(m, z)$ to the next block. By the end of the stack, $m$ and $z$ are dense with structure-relevant information and ready for the Structure Module to consume.
 
-Before we open a block up, it helps to have the topology in front of us. The diagram below shows one block: two streams running left-to-right, seven sub-blocks in temporal order, and the two cross-lane arrows that are the entire architectural point of the Evoformer.
+Before opening a block up, it helps to have the topology in front of us. The diagram below shows one block: two streams running left-to-right, seven sub-blocks in temporal order, and two cross-stream arrows that capture the whole architectural idea.
 
 <EvoformerDiagram />
 
 <Snippet file="minalphafold/evoformer.py" symbol="Evoformer" />
 
-Each block does, in order: (1) MSA row-wise attention *biased by* $z$, (2) MSA column-wise attention, (3) an MSA transition MLP, (4) an outer-product mean that writes MSA information back into $z$, (5) triangle multiplicative updates (outgoing and incoming) on $z$, (6) triangle self-attention (starting- and ending-node) on $z$, and (7) a pair transition MLP. That's seven sub-blocks per Evoformer block, 48 blocks total, and every sub-block has a dropout pattern matched to its shape.
+Each block does, in order: (1) MSA row-wise attention *biased by* $z$, (2) MSA column-wise attention, (3) an MSA transition MLP, (4) an outer product mean that writes MSA information back into $z$, (5) triangle multiplicative updates (outgoing and incoming) on $z$, (6) triangle self-attention (starting-node and ending-node) on $z$, and (7) a pair transition MLP. That is seven sub-blocks per Evoformer block, 48 blocks total, and every sub-block has a dropout pattern matched to its shape.
 
 <EditorialNote>
-  It's worth noticing how lopsided this is. Of the seven sub-blocks, only the
-  first three operate on $m$; the other four operate on $z$. The MSA stack is
-  narrow and mostly one-way (MSA → pair via the outer product mean). The pair
-  stack is where the geometry happens — triangle consistency, triangle-biased
-  attention — and it eats most of the block. In essence, the whole design is:
-  *extract co-evolution signal from the MSA, push it into the pair
-  representation, then spend most of the block refining the pair
-  representation into something the Structure Module can use.*
+  It is worth noticing how lopsided this is. Of the seven sub-blocks, only the
+  first three operate on $m$; the rest operate on $z$ or write into it. The
+  MSA stack is relatively narrow and mostly one-way: MSA → pair via the outer
+  product mean. The pair stack is where most of the geometry-like reasoning
+  happens: triangle consistency, triangle-biased attention, and pairwise
+  transitions. In essence, the design is: extract co-evolution signal from the
+  MSA, push it into the pair representation, then spend most of the block
+  refining the pair representation into something the Structure Module can use.
 </EditorialNote>
 
-Two structural things to flag before we dive in. First, the MSA stack terminates at the end of the Evoformer — only the first row of $m$ (the target sequence's representation) gets passed forward to the Structure Module. The other $s-1$ rows have done their job; they've pushed their evolutionary signal through the outer product mean and into $z$, and we don't need them anymore. Second, recycling (§9) wraps around the whole thing: the output of block 48 becomes part of the input of block 1 in the next cycle, and we do this up to four times per forward pass. Hence, "48 blocks" is really "up to 192 blocks of compute," just with weights shared across cycles.
+Two structural details are important before we dive in. First, the MSA stack terminates at the end of the Evoformer. Only the first row of $m$, corresponding to the target sequence, is projected into the single representation and passed to the Structure Module. The other $s-1$ rows have done their job: they have pushed their evolutionary signal through the outer product mean and into $z$. Second, recycling (§9) wraps around the whole model. The output of block 48 becomes part of the input of block 1 in the next cycle, and this can happen up to four times per forward pass in the paper setup. Hence, "48 blocks" is really "up to 192 blocks of compute," but with weights shared across recycling cycles.
 
 Now let's open up the Evoformer block sub-block by sub-block.
 
 ## 4. MSA row attention with pair bias
 
-This is Algorithm 7 of the supplement, and it's the most important single operation in the model. Row-wise attention means that, for each sequence $k$ in the MSA, attention runs along the row — residues of the same sequence attend to each other. The "with pair bias" part means we inject information from $z$ into the attention weights as a learned bias term.
+This is Algorithm 7 of the supplement, and it is one of the most important operations in the model. Row-wise attention means that, for each sequence $k$ in the MSA, attention runs along the row: residues of the same sequence attend to each other. The "with pair bias" part means that information from $z$ is injected into the attention weights as a learned bias term.
 
 Concretely, for a sequence $k$, the attention weight between residues $i$ and $j$ is:
 
@@ -279,33 +302,33 @@ where $q^h$ and $k^h$ are query and key projections of $m$ (sequence $s$, residu
 
 <Snippet file="minalphafold/evoformer.py" symbol="MSARowAttentionWithPairBias" />
 
-Here's the architectural trick: the pair representation enters the MSA stack *only* through this bias. That's the coupling mechanism. Without the bias, each row of the MSA would be processed independently, and the model would have no way to use evolutionary information to guide attention — the alignment would be just a bunch of disconnected sequences. With the bias, every head gets a per-pair channel that says "pay attention to positions $i$ and $j$ together, in proportion to what we currently believe about their pair representation." As the Evoformer iterates and $z$ accumulates structural information (through the outer-product mean from earlier blocks, the triangle updates, and recycling), the bias gets sharper, and the row attention becomes progressively more structure-aware.
+Here is the architectural trick: in the main Evoformer stack, the pair representation enters the MSA stack through this bias. That is the communication channel from $z$ back into $m$. Without the bias, each row of the MSA would be processed mostly on its own terms, and the model would have a much weaker way to use current pairwise beliefs to guide residue-level attention. With the bias, every head gets a per-pair signal saying, in effect, "pay attention to positions $i$ and $j$ together in proportion to what we currently believe about their relationship." As the Evoformer iterates and $z$ accumulates structural information through earlier outer product mean updates, triangle updates, and recycling, the bias becomes more informative, and row attention becomes progressively more structure-aware.
 
 <EditorialNote>
-  The gating term (a sigmoid on a learned linear projection) matters too, even
-  though it's easy to breeze past. Without gating, the residual add would
-  dominate — row attention would often compute a small update that got buried
-  by the residual. The gate lets each head say "trust my update for *this*
-  residue" or "don't touch this residue, leave it to another head." In
-  practice, gated attention in AF2 is load-bearing: the ablations in the paper
-  show that removing gates costs real accuracy.
+  The gating term, a sigmoid on a learned linear projection, matters too,
+  though it is easy to breeze past. The gate lets each head decide how much of
+  its proposed update should actually be written back into the residual stream.
+  The paper does not isolate gating as its own ablation, but the axial-attention
+  ablation removes triangles, pair bias, and gating together and pays a real
+  accuracy cost. The broader point is that these gates are part of the
+  Evoformer's stabilization machinery rather than decorative notation.
 </EditorialNote>
 
 ## 5. Column attention, transition, and the outer product mean
 
-Row attention teaches each sequence about its own residues. The next three sub-blocks teach the MSA about itself *across* sequences, shape up the representation for downstream consumption, and then — the payoff — push the aggregated evolutionary signal into $z$ so the pair stack can use it.
+Row attention teaches each sequence about its own residues. The next three sub-blocks do the complementary work: they let the MSA reason *across* sequences, shape the representation with a transition MLP, and then push the aggregated evolutionary signal into $z$ so the pair stack can use it.
 
-Before we dive into the sub-blocks, the core distinction between row- and column-wise attention is worth seeing visually. Both operate on the same MSA tensor; they just run along perpendicular axes. Toggle between them in the widget below — notice how the "scope" of a single attention step is either *one organism's whole chain* (rows) or *one aligned position across every organism* (columns).
+Before going through the sub-blocks, the distinction between row- and column-wise attention is worth seeing visually. Both operate on the same MSA tensor; they just run along perpendicular axes. Toggle between them in the widget below. The scope of a single attention step is either *one organism's whole chain* (rows) or *one aligned position across every organism* (columns).
 
 <MSAAttentionAnimator client:visible />
 
 ### 5.1 MSA column-wise attention (Algorithm 8)
 
-Column attention is the dual of row attention — for each residue position $i$, attention runs *down* the column, and sequences at the same position attend to each other. That is, for residue $i$ in sequence $k$, the embedding gets updated using information from residue $i$ in sequences $1, \dots, k-1, k+1, \dots, s$.
+Column attention is the dual of row attention. For each residue position $i$, attention runs *down* the column, and sequences at the same aligned position attend to each other. That is, for residue $i$ in sequence $k$, the embedding gets updated using information from residue $i$ in sequences $1, \dots, k-1, k+1, \dots, s$.
 
 <Snippet file="minalphafold/embedders.py" symbol="MSAColumnAttention" />
 
-There's no pair bias here — the pair representation is a per-residue-pair object, and column attention is happening across sequences at the same residue. It's a vanilla gated multi-head attention, except along the $s$ axis rather than the $r$ axis. Column attention is what lets the model ask "what does residue 47 look like across this whole family of homologs?" and compress that information into the embedding for residue 47 in the target row.
+There is no pair bias here. The pair representation is a residue-pair object, while column attention is happening across sequences at the same residue position. This is essentially gated multi-head attention along the $s$ axis rather than the $r$ axis. Column attention lets the model ask, "what does residue 47 look like across this whole family of homologs?" and compress the answer into the target row's representation.
 
 ### 5.2 MSA transition (Algorithm 9)
 
@@ -313,23 +336,23 @@ A standard two-layer MLP applied per-residue, per-sequence. The hidden dimension
 
 <Snippet file="minalphafold/embedders.py" symbol="MSATransition" />
 
-Nothing surprising here. The transition is the MSA stack's "compute" step, analogous to the FFN in a standard Transformer block. It gives the network capacity to combine features that the attention steps have just surfaced.
+Nothing surprising happens here. The transition is the MSA stack's feed-forward computation step, analogous to the FFN in a standard Transformer block. It gives the network capacity to combine the features that row and column attention have just surfaced.
 
 ### 5.3 The outer product mean (Algorithm 10)
 
-And now, the payoff. The outer product mean takes the MSA representation — which by this point in the block has been updated by row attention, column attention, and the transition MLP — and converts it into an update for the pair representation. Its job is to take everything we've learned about residues across the aligned sequences and distill it back down into a single signal about each residue pair $(i, j)$ in the target sequence, a signal we can then inject into $z$ so the pair stack can reason about contacts.
+And now, the payoff. The outer product mean takes the MSA representation, which by this point in the block has been updated by row attention, column attention, and the transition MLP, and converts it into an update for the pair representation. Its job is to take everything the model has learned about residues across the aligned sequences and distill it into a signal about each residue pair $(i, j)$ in the target sequence. That signal is then added into $z$, where the pair stack can use it to reason about contacts.
 
 <Snippet file="minalphafold/embedders.py" symbol="OuterProductMean" />
 
 The mechanics work as follows. We start from the MSA representation of shape $(s, r, c_m)$. After a LayerNorm, we apply two separate linear projections to produce a "left" tensor $A$ and a "right" tensor $B$, each of shape $(s, r, c')$, where $c'$ is a smaller hidden dimension. You can think of $A$ as the representation of residue $i$ "as a left-hand partner" and $B$ as the representation of residue $j$ "as a right-hand partner" — two different views of the same residue, each tuned for its role in the pairwise interaction.
 
-Then the core operation: for every sequence $k$ in the MSA and every pair of residue positions $(i, j)$, we form the outer product of $A_{k,i}$ and $B_{k,j}$. That outer product is a $c' \times c'$ matrix that captures every pairwise interaction between the features of residue $i$ and the features of residue $j$, as seen in sequence $k$. Where a simple dot product would collapse everything down to a single number, the outer product preserves the full grid of feature-by-feature interactions — much richer information about how the two residues relate in this particular sequence.
+Then comes the core operation. For every sequence $k$ in the MSA and every pair of residue positions $(i, j)$, we form the outer product of $A_{k,i}$ and $B_{k,j}$. That outer product is a $c' \times c'$ matrix capturing every pairwise interaction between the features of residue $i$ and the features of residue $j$, as seen in sequence $k$. A dot product would collapse this relationship down to a single number. The outer product preserves the full feature-by-feature interaction grid.
 
-We then sum these outer products over all sequences in the MSA and divide by the number of sequences (with proper masking to ignore padded rows). This gives us, for each pair $(i, j)$, the average feature-by-feature interaction between residue $i$ and residue $j$ across the entire alignment. Intuitively: if residues $i$ and $j$ consistently co-vary across the MSA — the hallmark of co-evolution and likely physical contact — that pattern will show up strongly and consistently in these outer products and survive the averaging. If they vary independently, the signals across sequences will wash each other out.
+We then sum these outer products over all sequences in the MSA and divide by the number of valid sequences, with masking used to ignore padded rows. This gives us, for each pair $(i, j)$, the average feature-by-feature interaction between residue $i$ and residue $j$ across the entire alignment. Intuitively, if residues $i$ and $j$ consistently co-vary across the MSA, the hallmark of co-evolution and likely physical contact, that pattern should show up consistently in these outer products and survive the averaging. If they vary independently, the signals across sequences should wash each other out.
 
 The resulting tensor has shape $(r, r, c', c')$. We flatten the last two dimensions to get $(r, r, c' \cdot c')$, then apply a final linear projection to map down to $c_z$, the channel dimension of the pair representation. That produces a tensor of shape $(r, r, c_z)$ that can be added directly into $z$.
 
-The whole process is easier to feel than to read. The widget below walks through a toy MSA (6 sequences, $c' = 4$) with a fixed target pair $(i, j)$. Watch the outer-product matrix for each sequence slot into a running mean — patterns shared across sequences reinforce, idiosyncratic patterns wash out, and what survives is the per-pair signal the pair stack then builds geometry on top of.
+The whole process is easier to understand visually than verbally. The widget below walks through a toy MSA (6 sequences, $c' = 4$) with a fixed target pair $(i, j)$. Watch the outer-product matrix for each sequence enter the running mean. Patterns shared across sequences reinforce, idiosyncratic patterns wash out, and what survives is the per-pair signal the pair stack will build on top of.
 
 <OPMAnimator client:visible />
 
@@ -356,11 +379,11 @@ The whole process is easier to feel than to read. The widget below walks through
 
 ## 6. Triangle multiplicative updates
 
-After the MSA stack has finished — row attention, column attention, transition, and the outer product mean — the pair representation $z$ is holding a first pass at the evolutionary signal. For every residue pair $(i, j)$ in the target, $z_{ij}$ is a vector whose direction and magnitude encode how strongly the alignment thinks those two residues are coupled. The rest of the Evoformer block is about shaping that signal into something a structure module can actually place atoms with. The first two sub-blocks that do the shaping are the triangle multiplicative updates.
+After the MSA stack has finished — row attention, column attention, transition, and the outer product mean — the pair representation $z$ holds a first pass at the evolutionary signal. For every residue pair $(i, j)$ in the target, $z_{ij}$ is a vector encoding what the model currently believes about that pair. The rest of the Evoformer block is about turning this pairwise signal into something geometrically coherent enough for the Structure Module to use. The first two sub-blocks that do this are the triangle multiplicative updates.
 
-The intuition lives in the word "triangle." Think of $z$ as a directed graph on the residues — residues are vertices, and the pair representation $z_{ij}$ is the vector sitting on the directed edge from $i$ to $j$. Physical contacts are, in essence, a consistency claim about these edges: if residue $i$ and residue $k$ are in contact, and residue $k$ and residue $j$ are in contact, then residues $i$ and $j$ are *also* likely in contact — because all three are clustered in the same region of 3D space. You can't just update one edge at a time without enforcing that kind of triangle consistency; if you do, the pair representation will happily hold a globally incoherent story where every edge is locally plausible but the triangles don't close.
+The intuition lives in the word "triangle." Think of $z$ as a directed graph on residues. Residues are vertices, and the pair representation $z_{ij}$ is the vector sitting on the directed edge from $i$ to $j$. Physical contacts imply consistency constraints over these edges. If residue $i$ and residue $k$ are close, and residue $k$ and residue $j$ are close, then residue $i$ and residue $j$ are also more likely to be close, because all three residues may occupy the same local region of 3D space. If you update every edge independently, the pair representation can tell a globally incoherent story in which each edge is locally plausible but the triangles do not close.
 
-The triangle multiplicative update fixes this. For each target edge $z_{ij}$, it computes an update by summing over every residue $k$, multiplying together the other two edges of a triangle $(i, k, j)$:
+The triangle multiplicative update is designed to address precisely this issue. For each target edge $z_{ij}$, it computes an update by summing over every residue $k$, multiplying together the other two edges of a triangle $(i, k, j)$:
 
 <Equation id="eq-trimul-outgoing" number="11">
 $$
@@ -386,21 +409,21 @@ Before we look at code, the update is much easier to understand when you can wat
 
 <TriMulAnimator client:visible />
 
-A few things worth noticing as the animation runs. (1) The target cell $(i, j)$ stays put, but the two contributing cells sweep across the grid together as $k$ advances. (2) In outgoing mode, the two contributing cells share a column ($k$); in incoming mode, they share a row. (3) The $k$-summation touches every other residue in the chain — not just the ones currently believed to be nearby. It's a dense update, not a sparse attention.
+A few things are worth noticing as the animation runs. First, the target cell $(i, j)$ stays fixed, but the two contributing cells sweep across the grid together as $k$ advances. Second, in outgoing mode, the two contributing cells share a column ($k$); in incoming mode, they share a row. Third, the $k$-summation touches every other residue in the chain, not just residues currently believed to be nearby. This is a dense update, not a sparse attention pattern.
 
 ### 6.2 The code
 
-With the operation in mind, the PyTorch follows directly. The outgoing variant first:
+With the operation in mind, the PyTorch follows directly. Here is the outgoing variant:
 
 <Snippet file="minalphafold/embedders.py" symbol="TriangleMultiplicationOutgoing" />
 
-The pattern is exactly what the equation says: LayerNorm, four linear projections (`linear_a`, `linear_b`, plus gate linears), compute $a$ and $b$, `einsum` the sum-over-$k$, LayerNorm, final gated linear, done. The `einsum` string is where the geometry sits — `bikc,bjkc->bijc` says "for each batch $b$, sum over $k$ the elementwise product of $a_{ik}$ and $b_{jk}$, producing $z_{ij}$ in channels $c$." Read it once carefully; this single einsum is the whole triangle multiplicative update.
+The pattern is exactly what the equation says: LayerNorm, four linear projections (`linear_a`, `linear_b`, plus gate linears), compute $a$ and $b$, `einsum` the sum over $k$, LayerNorm, final gated linear, done. The `einsum` string is where the operation lives: `bikc,bjkc->bijc` says "for each batch $b$, sum over $k$ the elementwise product of $a_{ik}$ and $b_{jk}$, producing an update for $z_{ij}$ in channels $c$." Read it once carefully; this single einsum is the whole triangle multiplicative update.
 
 The incoming variant differs only in the einsum indices:
 
 <Snippet file="minalphafold/embedders.py" symbol="TriangleMultiplicationIncoming" />
 
-`bkic,bkjc->bijc` — swap which axis $k$ sums over. Everything else is identical.
+`bkic,bkjc->bijc`: swap which axis $k$ sums over. Everything else is identical.
 
 <EditorialNote>
   It's worth pausing on the cost of this operation. The einsum is $O(r^3 c')$
@@ -416,45 +439,45 @@ The incoming variant differs only in the einsum indices:
 
 ## 7. Triangle self-attention
 
-The triangle *multiplicative* updates enforce triangle consistency in a direct algebraic way — every edge gets refined using a sum over third vertices. The triangle *self-attention* layers are the softer, attention-weighted version of the same idea. They let each edge attend to other edges that share a residue with it, weighted by a learned compatibility score that also reflects the current pair representation.
+The triangle *multiplicative* updates enforce triangle consistency in a direct algebraic way: every edge is refined using a sum over third vertices. The triangle *self-attention* layers are the softer, attention-weighted version of the same idea. They let each edge attend to other edges that share a residue with it, using learned compatibility scores that also reflect the current pair representation.
 
 There are two variants again, differing in how the "shared residue" is picked.
 
-**Starting-node attention (Algorithm 13).** For each target edge $(i, j)$, the query comes from $z_{ij}$, and the keys and values come from the set of edges starting at $i$ — that is, $\{z_{ik} : k \in [1, r]\}$. The attention scores additionally get a bias term derived from $z_{jk}$, so that the third vertex of the triangle enters the attention pattern directly.
+**Starting-node attention (Algorithm 13).** For each target edge $(i, j)$, the query comes from $z_{ij}$, and the keys and values come from the set of edges starting at $i$, namely $\{z_{ik} : k \in [1, r]\}$. The attention scores also get a bias term derived from $z_{jk}$, so the third edge of the triangle enters the attention pattern directly.
 
 <Snippet file="minalphafold/embedders.py" symbol="TriangleAttentionStartingNode" />
 
-**Ending-node attention (Algorithm 14).** The same thing, but now the keys and values come from the edges ending at $j$ — $\{z_{kj} : k \in [1, r]\}$ — and the bias comes from $z_{ki}$.
+**Ending-node attention (Algorithm 14).** The same thing, but now the keys and values come from the edges ending at $j$, namely $\{z_{kj} : k \in [1, r]\}$, and the bias comes from $z_{ki}$.
 
 <Snippet file="minalphafold/embedders.py" symbol="TriangleAttentionEndingNode" />
 
-The two operations together span both directions in which a third residue can be "shared" with the edge $(i, j)$ — either $k$ sits at the start of both $(i, k)$ and $(i, j)$, or $k$ sits at the end of both $(k, j)$ and $(i, j)$. And the triangle bias — pulling the third edge of the triangle directly into the softmax — is what makes these "triangle" attention rather than vanilla row/column attention on the pair representation. Without the bias term, the two operations would look like familiar self-attention patterns over rows and columns of $z$; the bias is the thing that wires the third edge in.
+The two operations together cover both ways a third residue can be "shared" with the edge $(i, j)$: either $k$ sits at the start of both $(i, k)$ and $(i, j)$, or $k$ sits at the end of both $(k, j)$ and $(i, j)$. The triangle bias, which pulls the third edge of the triangle directly into the softmax, is what makes these triangle attention rather than vanilla row/column attention on the pair representation. Without that bias, the operations would look like ordinary attention over rows and columns of $z$.
 
 After triangle attention, the Evoformer block closes with a simple pair transition MLP — the same 2-layer, 4×-expansion FFN pattern we saw in §5.2, but now on the pair representation:
 
 <Snippet file="minalphafold/embedders.py" symbol="PairTransition" />
 
-That's the full Evoformer block: seven sub-blocks, of which two operate on the MSA stack with a small ancillary role (column attn, MSA transition), one couples the two representations (OPM), and four operate on the pair representation (triangle mult × 2, triangle attn × 2, pair transition). The pair stack is where the geometric consistency gets enforced, and the sub-block budget reflects that.
+That is the full Evoformer block: seven sub-blocks, of which three update the MSA, one couples the MSA into the pair representation, and the remainder refine the pair representation. The pair stack is where geometric consistency is enforced, and the block budget reflects that.
 
 ## 8. Extra MSA and templates
 
-Two side pipelines feed additional information into the main representations before the Evoformer runs on them. Both are best thought of as "cheaper stacks that produce pair-representation updates" — neither of them has the full 48-block Evoformer treatment, because neither needs it.
+Two side pipelines feed additional information into the main representations before the Evoformer trunk runs on them. Both are best understood as cheaper stacks that produce pair-representation updates. Neither gets the full 48-block Evoformer treatment, because neither is meant to carry the main iterative reasoning load.
 
 ### 8.1 Extra MSA
 
-AlphaFold2's main MSA input is clustered and capped at a modest number of sequences (a few hundred in the full config, eight in `tiny.toml`) — enough to carry rich signal but small enough that the Evoformer's attention cost stays manageable. The **extra MSA** is a larger slice of the same alignment (thousands of sequences in the full config) that gets processed by a shallower, cheaper sibling of the Evoformer — different block count, global column attention instead of per-sequence column attention, and a one-way handoff into the pair representation (no feedback into the main MSA).
+AlphaFold2's main MSA input is clustered and capped at a manageable number of sequences — enough to carry rich signal, but small enough that the Evoformer's attention cost does not explode. The **extra MSA** is a larger slice of the same alignment that gets processed by a shallower, cheaper sibling of the Evoformer: fewer blocks, global column attention instead of full column attention, and a one-way handoff into the pair representation.
 
 <Snippet file="minalphafold/embedders.py" symbol="ExtraMsaStack" />
 
-The critical substitution is here: where the main MSA uses full column attention, the extra MSA uses <CodeRef file="minalphafold/embedders.py" symbol="MSAColumnGlobalAttention" />, which computes attention weights from a pooled summary of each column rather than from pairwise scores. This is the same trick used in Performer and Linformer — replace $O(s^2)$ column attention with an $O(s)$ aggregate, at the cost of some expressivity. The extra MSA can afford that cost because its role is to push information into $z$, not to build a refined per-residue representation.
+The critical substitution is here: where the main MSA uses full column attention, the extra MSA uses <CodeRef file="minalphafold/embedders.py" symbol="MSAColumnGlobalAttention" />, which computes attention from a pooled summary of each column rather than from all pairwise sequence-to-sequence scores. The broad idea is the same as many efficient-attention methods: trade some expressivity for a much cheaper operation. The extra MSA can afford that tradeoff because its role is not to preserve a richly refined per-sequence representation. Its role is to extract more evolutionary signal and write it into $z$.
 
 ### 8.2 Templates
 
-When AlphaFold2 has structural hints from related proteins in the PDB, it processes them with a dedicated template pair stack. Each template is featurized into a pair representation of shape $(r, r, c_t)$ — distances between backbone atoms, unit vectors between Cα positions, sequence identity masks — and fed through a few Evoformer-style blocks specialized for pair-only updates.
+When AlphaFold2 has structural hints from related proteins in the PDB, it processes them with a dedicated template pair stack. Each template is featurized into a pair representation of shape $(r, r, c_t)$: distances between backbone atoms, unit vectors between Cα positions, sequence identity masks, and related geometric features. These pair features are then fed through a few Evoformer-style blocks specialized for pair-only updates.
 
 <Snippet file="minalphafold/embedders.py" symbol="TemplatePair" />
 
-The template pair stack is Evoformer-lite: triangle multiplication (outgoing + incoming), triangle attention (starting + ending), pair transition. No MSA side. The output of the stack for each template is a pair tensor, and those tensors get combined across templates by a <CodeRef file="minalphafold/embedders.py" symbol="TemplatePointwiseAttention" /> layer that lets the target sequence attend across its available templates.
+The template pair stack is Evoformer-lite: triangle multiplication (outgoing and incoming), triangle attention (starting and ending), and a pair transition. There is no MSA side. The output of the stack for each template is a pair tensor, and those tensors get combined across templates by a <CodeRef file="minalphafold/embedders.py" symbol="TemplatePointwiseAttention" /> layer that lets the target sequence attend across its available structural hints.
 
 <EditorialNote>
   For the minimal implementation and for this walkthrough, templates are
@@ -469,56 +492,54 @@ The template pair stack is Evoformer-lite: triangle multiplication (outgoing + i
 
 ## 9. Recycling
 
-The last structural idea in the Evoformer-level description of AlphaFold2 is recycling — and it's a surprisingly important one for something so simple. The setup is as follows: run a forward pass, get an MSA representation, a pair representation, and a structure module output. Then take (parts of) those outputs, feed them back into the *inputs* of the next forward pass, and run the whole thing again. Up to four times at inference, a random number of times during training.
+The last structural idea in the Evoformer-level description of AlphaFold2 is recycling. This is one of those ideas that looks almost too simple to be important, but turns out to be load-bearing. The setup is as follows: run a forward pass, get an MSA representation, a pair representation, and a Structure Module output. Then take parts of those outputs, feed them back into the *inputs* of the next forward pass, and run the whole model again. In the paper setup, this happens up to four times at inference and a sampled number of times during training.
 
 <RecyclingDiagram />
 
-What exactly gets fed back? Three things: the first row of the final MSA representation ($m^{(1)}$, the "target" row), the final pair representation $z$, and a distance-binned version of the pseudo-Cβ coordinates extracted from the predicted structure. All three are run through their own LayerNorm and added into the current-cycle input embeddings. The pseudo-Cβ distances go through one extra step — `recycling_distance_bin` one-hot-encodes pairwise distances into 15 radial bins, linearly projects the bins into pair-representation dimension, and adds into $z$.
+What exactly gets fed back? Three things: the first row of the final MSA representation ($m^{(1)}$, the target row), the final pair representation $z$, and a distance-binned version of the pseudo-Cβ coordinates extracted from the predicted structure. The representation tensors are normalized and added into the current-cycle input embeddings. The pseudo-Cβ distances go through one extra step: `recycling_distance_bin` one-hot-encodes pairwise distances into 15 radial bins, linearly projects the bins into pair-representation dimension, and adds the result into $z$.
 
-<Snippet file="minalphafold/model.py" lines="260-275" />
+<Snippet file="minalphafold/model.py" lines="262-272" />
 
 Two details matter for how this trains.
 
-**Stop-gradient between cycles.** The tensors fed back are detached from the computation graph. Gradients only flow through the final cycle of a forward pass; every earlier cycle is a no-grad refinement. This keeps the memory cost of the whole thing linear in the *last* cycle rather than in the sum of all cycles. It also has a regularization effect — the model has to learn representations that are useful both (a) when they're consumed by the current cycle's structure module and (b) when they're consumed by the next cycle's input embedder. Representations that work for both are more robust than representations tuned only for the immediate downstream.
+**Stop-gradient between cycles.** The tensors fed back are detached from the computation graph. Gradients only flow through the final cycle of a training forward pass; earlier cycles provide refinement but do not receive direct gradient through the recycling loop. This keeps the memory cost much lower than fully unrolling every cycle. It also has a useful regularizing effect: the model has to learn representations that are useful both when consumed by the current cycle's Structure Module and when consumed by the next cycle's input embedder.
 
-**Random number of cycles during training.** At inference, four cycles is a fixed choice. At training, the number of cycles is sampled uniformly per batch. This means the model sees "1-cycle" inputs (no feedback yet), "2-cycle" inputs, etc., and must produce a reasonable prediction in all of them — rather than being allowed to specialize for the last cycle alone. The recycling loop is therefore not just an inference-time trick; it's a training regime, and the weights have to learn to converge iteratively.
+**Random number of cycles during training.** At inference, the number of cycles can be fixed. During training, the number of cycles is sampled uniformly. This means the model sees 1-cycle, 2-cycle, and later-cycle inputs, and must produce reasonable predictions in all of them rather than specializing only to the final cycle. Recycling is therefore not just an inference-time refinement trick. It is a training regime that teaches the model to converge iteratively.
 
 <EditorialNote>
-  I find recycling to be the single most underrated component of AlphaFold2.
-  It's the mechanism that turns a deep-but-not-*that*-deep Evoformer into an
-  effectively 192-block iterative refiner. The cost at inference is a 4×
-  compute blow-up, but the accuracy improvement is large — the paper's
-  ablations show it's worth roughly 4 GDT points on CASP14, comparable to
-  removing half the Evoformer blocks. All that from a small addition to the
-  input embedding. It's also what makes self-distillation (training on the
-  model's own predictions of unlabeled sequences) work: the model has already
-  been trained to consume its own output, so distillation inputs live
-  on-manifold.
+  I find recycling to be one of the most underrated components of AlphaFold2.
+  It is the mechanism that turns a 48-block Evoformer into an iterative
+  refiner with shared weights. The inference cost rises with the number of
+  cycles, but the paper's ablations show that removing recycling is one of the
+  more meaningful hits to accuracy. The broader reason is intuitive: the model
+  is trained to consume its own previous predictions, so later cycles operate
+  on inputs that are increasingly close to the distribution the model itself
+  creates.
 </EditorialNote>
 
 ## 10. The Structure Module
 
-Everything we've done so far — input embedding, the entire Evoformer, recycling — has been a wind-up. The pair representation $z$ is finally dense with structural information, and the first row of the MSA representation holds a structurally-informed per-residue embedding $s_i$ for the target sequence. None of it, however, has a position in 3D. The Structure Module is where those abstract representations become atoms.
+Everything we have done so far — input embedding, the Evoformer, and recycling — has been aimed at producing two useful representations: a pair representation $z$ rich with structural information, and a single representation $s_i$ for each residue of the target sequence. But none of this is yet a protein structure. The model still needs to place atoms in 3D space. The Structure Module is where that happens.
 
-It does this in a way that's genuinely different from the Evoformer. There's no self-attention on generic tensors here; instead, every operation is built around **rigid frames** — a local coordinate system attached to each residue — and every attention weight and coordinate update respects the fact that proteins live in 3D space and don't care about how you've oriented the global axes. That constraint, SE(3) equivariance, is what gives the Structure Module its distinctive shape.
+It does this in a way that is genuinely different from the Evoformer. There is no generic self-attention over abstract sequence tensors here. Instead, the core object is the **rigid frame**, a local coordinate system attached to each residue. The attention weights and coordinate updates are constructed to respect the fact that proteins live in 3D space and do not care how we orient the global axes. That constraint, SE(3) equivariance/invariance depending on the object being discussed, is what gives the Structure Module its distinctive shape.
 
-The module runs for 8 shared-weight iterations, and each iteration does four things: invariant point attention, a transition MLP, a backbone update, and all-atom coordinate construction. We'll build up to the whole loop in §10e; first, let's get the geometry straight.
+The module runs for 8 shared-weight iterations. Each iteration performs invariant point attention, a transition MLP, a backbone update, and all-atom coordinate construction. We'll build up to the full loop in §10e; first, we need to get the geometry straight.
 
 ### 10a. Rigid frames
 
-Every residue in an AlphaFold2 prediction has an associated **rigid frame**: a translation $t_i \in \mathbb{R}^3$ and a rotation $R_i \in \mathrm{SO}(3)$. Together, $T_i = (R_i, t_i)$ is an element of the special Euclidean group $\mathrm{SE}(3)$ — the group of rigid motions in 3D. You can think of $T_i$ as a little floating coordinate system attached to the residue. The origin of that coordinate system sits on the residue's $C_\alpha$ atom; the $x$ axis points roughly along the $C_\alpha \to C$ bond; the $y$ axis lives in the plane of $N$, $C_\alpha$, $C$ and is orthogonal to $x$; and $z$ is their cross product.
+Every residue in an AlphaFold2 prediction has an associated **rigid frame**: a translation $t_i \in \mathbb{R}^3$ and a rotation $R_i \in \mathrm{SO}(3)$. Together, $T_i = (R_i, t_i)$ is an element of the special Euclidean group $\mathrm{SE}(3)$, the group of rigid motions in 3D. You can think of $T_i$ as a small coordinate system attached to the residue. The origin sits on the residue's $C_\alpha$ atom; the $x$ axis points roughly along the $C_\alpha \to C$ bond; the $y$ axis lives in the plane of $N$, $C_\alpha$, and $C$ while remaining orthogonal to $x$; and the $z$ axis is their cross product.
 
-<Snippet file="minalphafold/geometry.py" symbol="rigid_frame_from_three_points" />
+<Snippet file="minalphafold/geometry.py" lines="219-251" title="rigid_frame_from_three_points" />
 
-The function computes frames from triples of atom coordinates — in AlphaFold2, these are the $N$, $C_\alpha$, and $C$ backbone atoms — via a three-step Gram–Schmidt dance: translate so $C_\alpha$ is at the origin, orient $x$ along $C_\alpha \to C$, and orient $y$ to project $N$ into the $xy$-plane. The choice is standard (Algorithm 21), and the specific convention matters only inasmuch as it has to match the convention used to build side chains later.
+The function computes frames from triples of atom coordinates. In AlphaFold2, these are the $N$, $C_\alpha$, and $C$ backbone atoms. The construction is a three-step Gram-Schmidt procedure: translate so $C_\alpha$ is at the origin, orient $x$ along $C_\alpha \to C$, and orient $y$ by projecting $N$ into the $xy$-plane. The specific convention matters because it must match the convention used later to build side chains.
 
-Why carry around frames at all, rather than just Cartesian coordinates? Two reasons. First, frames express geometry *relatively* — for any two residues $i$ and $j$, the position of $j$ "as seen by $i$" is just $T_i^{-1} \cdot t_j$, which is residue $j$'s translation expressed in $i$'s local coordinate system. That operation is invariant under any global rigid motion of the whole protein, and invariance is something we want to bake in rather than learn. Second, frames compose cleanly — if you have an update $\Delta T$ you'd like to apply to a residue, the composition $T_i \leftarrow T_i \cdot \Delta T$ is a frame. That's how backbone updates work in §10c, and how side-chain atoms are built by composing torsion-angle rotations with literature frames in §10d.
+Why carry around frames rather than just Cartesian coordinates? Two reasons. First, frames express geometry *relatively*. For any two residues $i$ and $j$, the position of $j$ "as seen by $i$" is just $T_i^{-1} \cdot t_j$, meaning residue $j$'s translation expressed in residue $i$'s local coordinate system. This operation is invariant under any global rigid motion of the whole protein, and that invariance is something we want to build in rather than learn. Second, frames compose cleanly. If you have an update $\Delta T$ to apply to a residue, the composition $T_i \leftarrow T_i \cdot \Delta T$ is still a valid frame. This is how backbone updates work in §10c, and it is also how side-chain atoms are built by composing torsion-angle rotations with literature frames in §10d.
 
 #### Quaternions as the rotation parameterization
 
-Rotations have three natural representations: rotation matrices (9 numbers, 6 constraints — orthogonality), Euler angles (3 numbers, all kinds of pathologies — gimbal lock, discontinuous wrap-around), and quaternions (4 numbers, 1 constraint — unit norm). AlphaFold2 uses quaternions everywhere a rotation is being *output* or *updated* by the model, and matrices everywhere a rotation is being *applied*.
+Rotations have three natural representations: rotation matrices (9 numbers, 6 constraints from orthogonality), Euler angles (3 numbers, but with unpleasant pathologies like gimbal lock and discontinuous wrap-around), and quaternions (4 numbers, 1 constraint from unit norm). AlphaFold2 uses quaternions when a rotation is being *output* or *updated* by the model, and rotation matrices when a rotation is being *applied*.
 
-The reason is mostly about smooth updates. When the Structure Module emits a backbone update, it outputs three scalars — let's call them $(b, c, d)$ — and forms a quaternion $q = (1, b, c, d)$ (un-normalized). You then normalize to get a unit quaternion and convert to a rotation matrix. This parameterization has a very useful property: the identity rotation is at $q = (1, 0, 0, 0)$, which corresponds to $(b, c, d) = (0, 0, 0)$. That means "no update" is the all-zeros output, which is exactly what you want a transition MLP to default to at initialization. Contrast this with Euler angles, where no principled "zero" makes the model start stably, or rotation matrices, where outputting a valid $R \in \mathrm{SO}(3)$ from a linear layer requires an awkward projection.
+The reason is mostly about smooth updates. When the Structure Module emits a backbone update, it outputs three scalars, which we can call $(b, c, d)$, and forms an unnormalized quaternion $q = (1, b, c, d)$. It then normalizes this quaternion and converts it to a rotation matrix. This parameterization has a useful property: the identity rotation is at $q = (1, 0, 0, 0)$, corresponding to $(b, c, d) = (0, 0, 0)$. Thus, "no update" is the all-zero model output, which is exactly what we want a small MLP to default to at initialization. Rotation matrices and Euler angles do not give us this nearly as cleanly.
 
 Concretely, a unit quaternion $q = (w, x, y, z)$ maps to a rotation matrix via:
 
@@ -536,7 +557,7 @@ The widget below is the clearest way I know to internalize this formula. Drag th
 
 <QuaternionFrame client:visible />
 
-Play with it for a minute. A few things worth noticing: (1) the rotation depends only on the direction of $q$, not its magnitude — since we always normalize, scaling all four sliders proportionally leaves the output unchanged. (2) $q$ and $-q$ give the same rotation matrix; this is the "double cover" of $\mathrm{SO}(3)$ by the unit quaternions $S^3$, and it means a quaternion of all-zero-but-$w$ and an all-zero-but-$-w$ both represent the identity rotation. (3) The presets for "90° about X" (or Y) sit at $q = (1/\sqrt{2}, 1/\sqrt{2}, 0, 0)$ rather than anything you'd expect from degrees — quaternions use the *half-angle*, because they double-cover. Pairs like these come up constantly when reading rotation code.
+Play with it for a minute. A few things are worth noticing. First, the rotation depends only on the direction of $q$, not its magnitude, because we normalize before converting to a matrix. Second, $q$ and $-q$ give the same rotation matrix; this is the double cover of $\mathrm{SO}(3)$ by the unit quaternions $S^3$. Third, the presets for "90° about X" (or Y) sit at $q = (1/\sqrt{2}, 1/\sqrt{2}, 0, 0)$ because quaternions use the half-angle. These details show up constantly when reading rotation code.
 
 <Snippet file="minalphafold/geometry.py" symbol="backbone_frames" />
 
@@ -544,7 +565,7 @@ The `backbone_frames` helper just calls `rigid_frame_from_three_points` in a loo
 
 ### 10b. Invariant Point Attention
 
-Invariant Point Attention is the signature innovation of the Structure Module. Built on top of rigid frames, it's a three-term attention score that is provably invariant to any global rigid motion of the input. This is not a soft inductive bias — it's an algebraic property of the operation. Rotate the entire protein in space and the IPA scores are numerically unchanged.
+Invariant Point Attention is the signature innovation of the Structure Module. Built on top of rigid frames, it defines a three-term attention score that is invariant to any global rigid motion of the input. This is not merely a soft inductive bias. It is an algebraic property of the operation. Rotate or translate the whole protein in space, and the IPA attention scores are unchanged.
 
 The score between a query residue $i$ and a key residue $j$ for head $h$ looks like:
 
@@ -554,11 +575,11 @@ a^h_{ij} \propto \underbrace{\frac{1}{\sqrt{c}}\, q^h_i \cdot k^h_j}_{\text{scal
 $$
 </Equation>
 
-Three terms, three sources of information. The **scalar** term is a standard attention score on scalar queries and keys — the same as what the Evoformer does. The **pair bias** term injects the current pair representation $z_{ij}$ into the attention pattern, just like row attention did in §4. The new piece is the **point distance** term.
+Three terms, three sources of information. The **scalar** term is a standard attention score on scalar queries and keys, analogous to attention in the Evoformer. The **pair bias** term injects the current pair representation $z_{ij}$ into the attention pattern, just like row attention did in §4. The new piece is the **point distance** term.
 
-Each query head carries a small bank of 3D **query points** $\vec{q}^{\,h,p}_i$ — "3D" because they're elements of $\mathbb{R}^3$, not because they're positions in any particular frame. They're expressed in residue $i$'s *local* frame; applying $T_i$ lifts them into global coordinates. The same goes for key points $\vec{k}^{\,h,p}_j$. The point-distance term is a negative squared-distance between each pair of globally-transformed points, averaged across points. If a query point lifted from $i$ ends up close in 3D to a key point lifted from $j$, their pair gets a high attention score.
+Each query head carries a small bank of 3D **query points** $\vec{q}^{\,h,p}_i$. These points are expressed in residue $i$'s *local* frame; applying $T_i$ lifts them into global coordinates. The same is true for the key points $\vec{k}^{\,h,p}_j$. The point-distance term is a negative squared distance between each pair of globally transformed points, summed across points. If a query point lifted from $i$ ends up close in 3D to a key point lifted from $j$, that residue pair gets a higher attention score.
 
-Why does this give invariance? Suppose we apply a global rigid motion $G \in \mathrm{SE}(3)$ to every residue. Then $T_i \mapsto G \cdot T_i$ and $T_j \mapsto G \cdot T_j$. The globally-transformed points become $G \cdot (T_i \cdot \vec{q}^{\,h,p}_i)$ and $G \cdot (T_j \cdot \vec{k}^{\,h,p}_j)$, and rigid motions preserve distances, so the squared-distance term is unchanged. The scalar term doesn't touch positions, and the pair bias comes from $z$ (which has no spatial orientation). Hence, all three terms are preserved, and the attention pattern is preserved.
+Why does this give invariance? Suppose we apply a global rigid motion $G \in \mathrm{SE}(3)$ to every residue. Then $T_i \mapsto G \cdot T_i$ and $T_j \mapsto G \cdot T_j$. The transformed points become $G \cdot (T_i \cdot \vec{q}^{\,h,p}_i)$ and $G \cdot (T_j \cdot \vec{k}^{\,h,p}_j)$. Rigid motions preserve distances, so the squared-distance term is unchanged. The scalar term does not touch positions, and the pair bias comes from $z$, which has no global spatial orientation. Hence, all three terms are preserved, and the attention pattern is preserved.
 
 Here's what this looks like, conceptually, on a synthetic chain. Click a residue to select it as the query $i$. Top-5 attention weights are drawn as lines from the selected sphere to the others, with thickness proportional to weight, and also listed in the panel on the right. Toggle **Auto-rotate scene**: the whole chain spins, but the attention pattern stays fixed — individual lines don't brighten or fade as the scene rotates.
 
@@ -580,42 +601,42 @@ Here's what this looks like, conceptually, on a synthetic chain. Click a residue
 
 <Snippet file="minalphafold/structure_module.py" symbol="InvariantPointAttention" />
 
-Three things to look for as you read. First, the linear projections fall into three clean groups: scalar queries/keys/values (`linear_q`, `linear_kv`, etc.), 3D query/key/value *points* (`linear_q_points`, `linear_kv_points`), and the gate. The scalar ones produce tensors of shape $(r, h, c)$; the point ones produce $(r, h, 3, c_p)$ — the extra dimension is 3D space. Second, `_project_points` takes the point tensors and applies each residue's frame to them — this is the `T_i · q` operation in the equation. Third, the score is a sum of the three terms: a standard Q·K dot product, a pair bias projection, and a squared-distance sum across points, each scaled by a learnable per-head weight $\gamma^h$ so that the model can dial any of the three terms up or down.
+Three things to look for as you read. First, the linear projections fall into three groups: scalar queries/keys/values (`linear_q`, `linear_kv`, etc.), 3D query/key/value *points* (`linear_q_points`, `linear_kv_points`), and the gate. The scalar projections produce tensors of shape $(r, h, c)$; the point projections produce $(r, h, 3, c_p)$, where the extra dimension is 3D space. Second, `_project_points` takes the point tensors and applies each residue's frame to them. This is the $T_i \cdot q$ operation in the equation. Third, the score is a sum of the three terms: Q·K dot product, pair bias projection, and squared-distance sum across points, with a learnable per-head weight $\gamma^h$ controlling the point contribution.
 
-The output is a bit more elaborate than usual, too. IPA returns (1) a weighted sum of scalar values (regular attention output), (2) a weighted sum of value points — this is a *point-cloud* output, one 3D vector per head, which the subsequent linear layer turns into an additive update to the single representation $s_i$, and (3) a flat scalar derived from the attention-weighted norms of the value points. All three get concatenated and fed into the transition MLP. In other words, we get scalar information out of IPA, but we also get geometric information — a key insight the paper drives home.
+The output is more elaborate than in standard attention. IPA returns (1) a weighted sum of scalar values, which is the regular attention output; (2) a weighted sum of value points, giving a point-cloud-like output with one 3D vector per head; and (3) scalar features derived from the attention-weighted norms of those value points. These get concatenated and projected back into the single representation $s_i$. In other words, IPA returns scalar information and geometric information at the same time.
 
 <EditorialNote>
-  IPA is genuinely new. There are plenty of attention variants that operate
-  on graphs or respect some symmetry, but IPA's particular trick — attention
-  scores as a learnable mixture of scalar, pair-bias, and 3D-point-distance
-  terms, with the point-distance term made invariant by working in local
-  frames — didn't exist before AF2. Every downstream structure-prediction
-  paper (ESMFold's folding trunk, OpenFold's reimplementation, AlphaFold-Multimer,
-  RoseTTAFold's refinement network) borrows from it. When you see "SE(3)-equivariant
-  attention" in later papers, IPA is one of the ancestors.
+  IPA is genuinely new. There were attention variants that operated on graphs
+  or respected symmetries before AlphaFold2, but IPA's particular trick —
+  attention scores as a learnable mixture of scalar, pair-bias, and
+  3D-point-distance terms, with the point-distance term made invariant by
+  local frames — was one of AF2's major architectural contributions. You can
+  see its influence in many later structure-prediction systems and
+  reimplementations. When you see geometry-aware attention in this literature,
+  IPA is one of the ancestors.
 </EditorialNote>
 
 ### 10c. Backbone update
 
-IPA and its transition MLP produce an updated single representation $s_i$ per residue. The backbone update is the step that takes that $s_i$ and turns it into an additive move on the frame $T_i$. The mechanics are simple: project $s_i$ to six scalars, interpret the first three as the imaginary part of an un-normalized quaternion, interpret the last three as a translation, and compose into $T_i$.
+IPA and its transition MLP produce an updated single representation $s_i$ for each residue. The backbone update is the step that turns this $s_i$ into an update on the frame $T_i$. The mechanics are simple: project $s_i$ to six scalars, interpret the first three as the imaginary part of an unnormalized quaternion, interpret the last three as a translation, and compose the resulting rigid transformation into $T_i$.
 
 <Snippet file="minalphafold/structure_module.py" symbol="BackboneUpdate" />
 
-The quaternion construction is the clever bit. Rather than projecting $s_i$ to four scalars $(w, x, y, z)$, AlphaFold2 projects to three — $(b, c, d)$ — and forms $q = (1, b, c, d)$. Why? Because at initialization, `linear_proj` is near-zero, so $(b, c, d) \approx (0, 0, 0)$, and $q \approx (1, 0, 0, 0)$ — the identity quaternion. Hence, the update is the identity at initialization. Without this trick, the model would start predicting random rotations on cycle 1 and have to unlearn them; with it, the model starts at "no change from the previous frame" and learns corrections.
+The quaternion construction is the clever bit. Rather than projecting $s_i$ to four scalars $(w, x, y, z)$, AlphaFold2 projects to three scalars $(b, c, d)$ and forms $q = (1, b, c, d)$. Why? Because at initialization, the projection is near zero, so $(b, c, d) \approx (0, 0, 0)$ and $q \approx (1, 0, 0, 0)$, the identity quaternion. Hence, the update is near-identity at initialization. Without this trick, the model would begin by predicting arbitrary rotations and would have to learn its way back to stability. With it, the model starts from "no change" and learns corrections.
 
 Read that carefully — the backbone update is additive in the space of *rotations*, not in the space of quaternion components. The composition $T_i \leftarrow T_i \cdot (R(q), t_{\text{pred}})$ multiplies rotations (because $\mathrm{SO}(3)$ isn't a vector space) and adds translations. The QuaternionFrame widget from §10a lets you see concretely what small perturbations in $(b, c, d)$ do to the rotation matrix — set $(b, c, d)$ to small values and watch the rotation stay close to identity.
 
 ### 10d. All-atom coordinates
 
-A per-residue backbone frame isn't enough to call a protein "predicted." We need all the atoms: backbone (N, Cα, C, O) plus whatever side chain the residue type has. For all 20 amino acids, this adds up to at most 14 atoms per residue — the "atom14" representation used throughout the codebase.
+A per-residue backbone frame is not enough to call a protein structure predicted. We need all the atoms: backbone atoms (N, Cα, C, O) plus whatever side-chain atoms the residue type has. For the 20 canonical amino acids, this is represented as at most 14 atoms per residue, the "atom14" representation used throughout the codebase.
 
-So how do we get from backbone frames to all atoms? The trick AlphaFold2 uses is to reduce side-chain structure to **seven torsion angles**. Every residue, regardless of type, has (at most) seven rotatable bonds — the three backbone dihedrals ($\phi$, $\psi$, $\omega$) plus four $\chi$ side-chain angles. Given the torsion angles and the residue type, the full all-atom structure is determined — the geometry of every bond length and every bond angle is fixed by chemistry (literature values in `residue_constants.py`), and only the torsions are free.
+So how do we get from backbone frames to all atoms? AlphaFold2 reduces the remaining degrees of freedom to **seven torsion angles** per residue: the three backbone dihedrals ($\phi$, $\psi$, $\omega$) plus up to four $\chi$ side-chain angles. Given the residue type and these torsion angles, the full all-atom structure is determined up to fixed chemical geometry. Bond lengths and bond angles come from literature values in `residue_constants.py`; the torsions are what the model has to predict.
 
 AlphaFold2 predicts the seven torsions per residue with a small head attached to the Structure Module output, then composes a chain of small rigid-body transformations to produce the atom coordinates:
 
-<Snippet file="minalphafold/structure_module.py" symbol="compute_all_atom_coordinates" />
+<Snippet file="minalphafold/structure_module.py" lines="782-839" title="compute_all_atom_coordinates" />
 
-For each residue, eight **rigid groups** get assembled:
+For each residue, eight **rigid groups** are assembled:
 
 1. Backbone (N, Cα, C, O): sits in the residue's backbone frame $T_i$ directly.
 2. Group for $\chi_1$: positioned by rotating around a literature-defined axis by the predicted $\chi_1$ angle, with literature-defined atoms attached.
@@ -623,41 +644,38 @@ For each residue, eight **rigid groups** get assembled:
 4. Groups for $\chi_3$, $\chi_4$: same pattern.
 5. Three more groups for secondary geometry (e.g., ring planes).
 
-<Snippet file="minalphafold/structure_module.py" symbol="rigid_group_frames_from_torsions" />
+<Snippet file="minalphafold/structure_module.py" lines="714-779" title="rigid_group_frames_from_torsions" />
 
-The `make_rot_x` helper does the geometric work — it rotates around the local $x$-axis by a learned angle, encoded as its sine and cosine (rather than the raw angle, so the model doesn't have to deal with wrap-around at $\pm \pi$). Each rigid-group frame $T^\text{group}_g$ is computed as $T^\text{parent}_g \cdot T^\text{literature}_g \cdot \mathrm{Rot}_x(\alpha_g)$ — compose the parent group's frame with the literature "default" transformation with a torsion-angle rotation.
+The `make_rot_x` helper does the geometric work. It rotates around the local $x$-axis by a learned angle encoded as sine and cosine, rather than as a raw angle, so the model does not have to deal with wrap-around at $\pm \pi$. Each rigid-group frame $T^\text{group}_g$ is computed as $T^\text{parent}_g \cdot T^\text{literature}_g \cdot \mathrm{Rot}_x(\alpha_g)$: compose the parent group's frame with the literature default transformation and then with the torsion-angle rotation.
 
-Once the eight group frames are known, the actual atom positions are looked up from `residue_constants.py`'s `restype_atom14_rigid_group_positions` table — which says, for each amino acid, "atom at index $k$ of atom14 sits at local coordinates $\vec{p}^{\text{aa}}_k$ in rigid group $g^{\text{aa}}_k$." Transform $\vec{p}^{\text{aa}}_k$ by the group frame and you have the atom's global position.
+Once the eight group frames are known, the actual atom positions are looked up from `residue_constants.py`'s `restype_atom14_rigid_group_positions` table. This table says, for each amino acid, "atom at index $k$ of atom14 sits at local coordinates $\vec{p}^{\text{aa}}_k$ in rigid group $g^{\text{aa}}_k$." Transform $\vec{p}^{\text{aa}}_k$ by the group frame and you have the atom's global position.
 
 <EditorialNote>
-  The torsion head and the atom-coordinate composition together are
-  surprisingly simple given what they accomplish. The whole thing — 8 rigid
-  groups, 7 torsion angles per residue, a lookup table of atom positions —
-  fits in a few hundred lines. And yet it produces full-atom predictions
-  that crystallographers find plausible at angstrom resolution.
-
-  What makes this work, in hindsight, is the separation of concerns. The
-  Structure Module doesn't have to learn bond lengths or bond angles;
-  chemistry handles those. It only has to learn (a) where to place each
-  residue's backbone frame and (b) which torsion angles to emit. The
-  residue_constants tables do the rest.
+  The torsion head and atom-coordinate composition are surprisingly simple
+  given what they accomplish. The whole thing — 8 rigid groups, 7 torsion
+  angles per residue, and a lookup table of atom positions — fits in a few
+  hundred lines. The reason this works is the separation of concerns. The
+  Structure Module does not need to learn bond lengths or bond angles;
+  chemistry supplies those. It only has to learn where to place each residue's
+  backbone frame and which torsion angles to emit. The residue-constant tables
+  do the rest.
 </EditorialNote>
 
 ### 10e. The full structure module loop
 
-With IPA, the backbone update, and the all-atom construction in place, the Structure Module itself is a short loop. Eight iterations, weights shared across iterations (like a deep equilibrium model), with each iteration refining both the backbone frames and the torsion angles.
+With IPA, the backbone update, and the all-atom construction in place, the Structure Module itself is a short loop: eight iterations, weights shared across iterations, with each iteration refining the backbone frames and side-chain torsions.
 
 <Snippet file="minalphafold/structure_module.py" symbol="StructureModule" />
 
-Two details to notice. First, every iteration applies IPA, transition, and backbone update, and all eight iterations see the same pair representation $z$ — $z$ is computed once at the top of the Structure Module (post-Evoformer) and held fixed for the whole structure loop. The thing that changes iteration over iteration is the *frames*, which feed back into IPA's point-distance term and shift the attention pattern as the structure settles. Second, every iteration produces a full prediction — backbone frames and torsion-derived coordinates — and per-iteration auxiliary FAPE losses are applied during training, so the model is pressured to make every iteration a reasonable structure, not just the last one.
+Two details are worth noticing. First, every iteration applies IPA, transition, and backbone update, and all eight iterations see the same pair representation $z$. The pair representation is computed once after the Evoformer and held fixed for the whole structure loop. What changes iteration by iteration is the set of *frames*, which feed back into IPA's point-distance term and shift the attention pattern as the structure settles. Second, every iteration produces a full prediction: backbone frames and torsion-derived coordinates. Per-iteration auxiliary FAPE losses are applied during training, so the model is pressured to make every iteration structurally meaningful, not just the last one.
 
-This is different from vanilla encoders, which reserve the loss for the final layer. Applying FAPE at every iteration has two effects: it prevents the early iterations from becoming "scratch space" that's only useful for the final iteration, and it lets the model work as a progressive refiner at inference time, producing increasingly accurate structures at every step. Combined with the weight sharing, you can think of the Structure Module as an unrolled fixed-point iteration — and like most such iterations, in practice, it converges well before the eighth step for most proteins.
+This is different from a vanilla encoder, where only the final layer is typically supervised. Applying FAPE at every iteration has two effects. First, it prevents early iterations from becoming arbitrary scratch space used only by the final iteration. Second, it lets the model act as a progressive refiner at inference time, producing a meaningful structure at every step. Combined with weight sharing, the Structure Module is best viewed as an unrolled iterative refinement process.
 
-After the loop finishes, the Structure Module emits the final frames $T_i$, the final atom14 coordinates, and the per-iteration predictions (for auxiliary losses). These, plus the final single and pair representations, feed into the auxiliary heads (§11) for distogram and pLDDT predictions, and — critically — the final pseudo-Cβ positions feed back into the recycling loop (§9) for the next cycle.
+After the loop finishes, the Structure Module emits the final frames $T_i$, the final atom14 coordinates, and the per-iteration predictions used for auxiliary losses. These, plus the final single and pair representations, feed into the auxiliary heads (§11). Critically, the final pseudo-Cβ positions also feed back into the recycling loop (§9) for the next cycle.
 
 ## 11. Auxiliary heads
 
-The Structure Module produces the thing you really want — atom coordinates — but AlphaFold2 also emits a handful of auxiliary predictions from small heads attached to the final representations. Most of them exist to provide supervision signal during training, and some also give users useful information at inference.
+The Structure Module produces the thing we ultimately care about: atom coordinates. But AlphaFold2 also emits a handful of auxiliary predictions from small heads attached to the final representations. Most of these exist to provide additional supervision during training, while some also give users useful information at inference.
 
 The heads all live in a single short file:
 
@@ -671,7 +689,7 @@ The heads all live in a single short file:
 
 <Snippet file="minalphafold/heads.py" symbol="DistogramHead" />
 
-Every head is architecturally trivial — a LayerNorm, a linear projection (sometimes two), and a softmax or sigmoid. The interesting work happens in how the outputs are trained against the right targets, which is where the losses in §12 come in. The key architectural thing to notice here is that the distogram and PAE heads both read from $z$, not from the atom coordinates directly. The pair representation has to simultaneously (a) drive the Structure Module's IPA via pair bias and point scoring, and (b) carry enough geometric information that you can read pairwise distances straight off it. That dual responsibility is part of why the pair stack is so disproportionately expensive in the Evoformer — $z$ is doing two jobs.
+Every head is architecturally simple: a LayerNorm, a linear projection (sometimes two), and a softmax or sigmoid. The interesting part is not the head architecture but the target each head is trained against, which brings us to the losses in §12. The key architectural point is that the distogram and PAE heads both read from $z$, not from the atom coordinates directly. The pair representation has to simultaneously (a) drive the Structure Module's IPA through pair bias and (b) carry enough geometric information that pairwise distances and aligned errors can be read from it. This dual responsibility is part of why the pair stack is so expensive in the Evoformer. $z$ is doing a lot of work.
 
 <Snippet file="minalphafold/heads.py" symbol="PLDDTHead" />
 
@@ -690,13 +708,13 @@ Every head is architecturally trivial — a LayerNorm, a linear projection (some
 
 ## 12. Losses
 
-The loss is where AlphaFold2 really spends its design budget. Structure prediction has a particular property that makes the loss non-trivial: the output lives in a space (SE(3)-equivariant atom coordinates) where naive $\ell_2$ distance between predicted and true structures depends on the global orientation of both, which is not something either model or supervisor cares about. If you predict a structure that's correct but globally rotated 90°, a coordinate MSE loss will punish you enormously for it, even though the prediction is chemically and biologically identical.
+The loss is where AlphaFold2 spends a surprising amount of its design budget. Structure prediction has a property that makes the loss non-trivial: the output lives in 3D space, where a naive $\ell_2$ distance between predicted and true coordinates depends on the arbitrary global orientation of both structures. If you predict a structure that is correct but globally rotated 90°, coordinate MSE will punish you heavily, even though the prediction is chemically and biologically the same.
 
-AlphaFold2's solution is **Frame-Aligned Point Error** — FAPE. It's the single most important loss in the paper and the centerpiece of this section. After FAPE, we'll cover the rest quickly: torsion loss, pLDDT loss, distogram loss, structural violations, and the combined `AlphaFoldLoss` that weights them all together.
+AlphaFold2's solution is **Frame-Aligned Point Error**, or FAPE. It is the central loss in the paper and the centerpiece of this section. After FAPE, we will cover the remaining terms more quickly: torsion loss, pLDDT loss, distogram loss, structural violations, and the combined `AlphaFoldLoss` that weights them together.
 
 ### 12.1 FAPE
 
-The idea of FAPE is simple once you've internalized rigid frames from §10 — rather than comparing predicted and true atom positions in a single global coordinate system, FAPE compares them in *every residue's local frame*, one at a time, and averages. Concretely, for a predicted frame $T_i$ and a predicted atom position $x_j$, and their ground-truth counterparts $T_i^*$ and $x_j^*$, FAPE's per-pair error is:
+The idea of FAPE is simple once you have internalized rigid frames from §10. Rather than comparing predicted and true atom positions in one global coordinate system, FAPE compares them in *every residue's local frame*, one at a time, and averages. Concretely, for a predicted frame $T_i$ and predicted atom position $x_j$, along with their ground-truth counterparts $T_i^*$ and $x_j^*$, the per-pair FAPE error is:
 
 <Equation id="eq-fape" number="28">
 $$
@@ -704,19 +722,19 @@ d_{ij} = \left\| T_i^{-1} \cdot x_j \;-\; (T_i^*)^{-1} \cdot x_j^* \right\|
 $$
 </Equation>
 
-Read the two terms from inside out. $T_i^{-1} \cdot x_j$ is "the position of atom $x_j$ as seen by residue $i$'s local frame" — exactly the same "lift into local frame" operation we met in IPA (§10b). $(T_i^*)^{-1} \cdot x_j^*$ is the same thing, but in the ground truth structure — where residue $i$ *should* have seen atom $j$ sit. The error $d_{ij}$ is the Euclidean distance between those two local-frame vectors.
+Read the two terms from inside out. $T_i^{-1} \cdot x_j$ is "the position of atom $x_j$ as seen by residue $i$'s local frame," exactly the same local-frame operation we met in IPA (§10b). $(T_i^*)^{-1} \cdot x_j^*$ is the same thing in the ground truth structure: where residue $i$ *should* have seen atom $j$. The error $d_{ij}$ is the Euclidean distance between those two local-frame vectors.
 
-This has two crucial properties. First, it's **SE(3) invariant by construction.** Apply any global rigid motion $G$ to the predicted structure; frames transform as $T_i \mapsto G \cdot T_i$ and atoms as $x_j \mapsto G \cdot x_j$; the local-frame position becomes $(G \cdot T_i)^{-1} \cdot (G \cdot x_j) = T_i^{-1} \cdot G^{-1} \cdot G \cdot x_j = T_i^{-1} \cdot x_j$. Same answer. The loss does not penalize global rotations or translations — exactly as we wanted. Second, it's **per-residue:** the error is between residue $i$'s view and residue $i$'s view $^*$, not a blob of globally-aggregated error. Every residue gets its own say about how the structure looks locally, and the loss is an average over all these views.
+This has two crucial properties. First, it is **SE(3) invariant by construction.** Apply any global rigid motion $G$ to the predicted structure. Frames transform as $T_i \mapsto G \cdot T_i$ and atoms as $x_j \mapsto G \cdot x_j$. The local-frame position becomes $(G \cdot T_i)^{-1} \cdot (G \cdot x_j) = T_i^{-1} \cdot G^{-1} \cdot G \cdot x_j = T_i^{-1} \cdot x_j$. Same answer. The loss does not penalize global rotations or translations. Second, it is **per-residue**: the error compares residue $i$'s predicted local view to residue $i$'s true local view. Every residue gets its own local judgment of the structure.
 
-The invariance is easier to feel than to derive. The widget below puts two chains side by side — ground truth in gray, prediction in pink — and gives you two sliders. One rotates the whole prediction globally; the other pushes a single residue off its true position. Coordinate MSE and FAPE both update in real time. Watch what happens: as you rotate the prediction, coordinate MSE shoots up (every residue has moved in the global frame) while FAPE stays pinned (rotating everything together preserves every local-frame relationship). Push the single residue, and both losses rise. That combination — insensitive to the arbitrary global frame, sensitive to every real mistake — is the architectural argument for FAPE in a single interaction.
+The invariance is easier to feel than to derive. The widget below puts two chains side by side: ground truth in gray, prediction in pink. One slider rotates the whole prediction globally; the other pushes a single residue away from its true position. Coordinate MSE and FAPE update in real time. As you rotate the prediction, coordinate MSE rises because every residue has moved in the global frame, while FAPE stays fixed because every local-frame relationship is preserved. Push the single residue, and both losses rise. This is the whole argument for FAPE in one interaction: insensitive to arbitrary global orientation, sensitive to actual structural mistakes.
 
 <FAPEInvarianceDemo client:visible />
 
-<Snippet file="minalphafold/losses.py" symbol="frame_aligned_point_error" />
+<Snippet file="minalphafold/losses.py" lines="49-126" title="frame_aligned_point_error" />
 
 Two implementation details matter here.
 
-**The distance clamp.** The raw error can be arbitrarily large — if the model gets a structure very wrong, some local-frame distances can blow up to hundreds of angstroms. FAPE clamps at `d_clamp`, default 10 Å. This is more than cosmetic: without clamping, the gradient from an outlier atom swamps everything else and training goes unstable. With clamping, the loss is bounded above by `d_clamp`, and the model is pressured to bring *every* atom within 10 Å before it's rewarded for bringing the already-close atoms even closer. The paper's ablations show the clamp is load-bearing.
+**The distance clamp.** The raw error can be arbitrarily large. If the model gets a structure very wrong, some local-frame distances can blow up to hundreds of angstroms. FAPE clamps at `d_clamp`, default 10 Å. This is not cosmetic. Without clamping, the gradient from a small number of badly misplaced atoms can dominate the whole update. With clamping, the model is first pressured to bring all atoms within the relevant neighborhood before it is rewarded for making already-close atoms even closer.
 
 **The normalization.** FAPE divides the sum of clamped distances by `d_clamp × mask.sum()`, so the loss is dimensionless and in [0, 1]. This is a small thing, but it matters for how weights in the combined loss are chosen — every term stays on the same scale.
 
@@ -726,7 +744,7 @@ The Structure Module's 8 iterations each produce a set of backbone frames (§10e
 
 <Snippet file="minalphafold/losses.py" symbol="BackboneTrajectoryLoss" />
 
-This is a meaningful design choice. It pressures every iteration to produce a structurally reasonable prediction, not just the final one. Without this, the early iterations would be free to emit arbitrary "scratchpad" frames that the later iterations clean up — and you'd lose the interpretability of reading structures off each iteration at inference time. With per-iteration FAPE, each iteration is trained to be an incremental refinement.
+This is a meaningful design choice. It pressures every iteration to produce a structurally reasonable prediction, not just the final one. Without this, early iterations could emit arbitrary intermediate frames that are useful only to later iterations. With per-iteration FAPE, each iteration is trained to be an incremental refinement.
 
 ### 12.3 All-atom FAPE
 
@@ -734,35 +752,35 @@ The final piece is all-atom FAPE. Once the Structure Module has emitted its last
 
 <Snippet file="minalphafold/losses.py" symbol="AllAtomFAPE" />
 
-One subtlety to look for: the reference (ground-truth) frames for this loss come from the *true* backbone atoms, not the predicted ones. And since some residues have symmetric side chains (tyrosine's ring, for example), the ground truth is "renamed" — Algorithm 26 of the supplement — to match whichever of two chemically-equivalent permutations the model happened to predict. That permutation search is handled upstream of this loss, so by the time FAPE runs, both predicted and true atoms are in a canonical order.
+One subtlety is worth noting. The reference frames for this loss come from the *true* backbone atoms, not the predicted ones. And since some residues have symmetric side chains, the ground truth is "renamed" through Algorithm 26 of the supplement to match whichever chemically equivalent atom permutation the model predicted. That permutation search is handled upstream of this loss, so by the time FAPE runs, the predicted and true atom tensors are in the right correspondence.
 
 ### 12.4 Torsion angle loss
 
-Side-chain torsions ($\chi_1$ through $\chi_4$) and backbone torsions ($\phi$, $\psi$, $\omega$) need their own supervision. Torsion angles live on the circle $S^1$, so the naive thing — L2 on the angle itself — has a discontinuity at $\pm \pi$ that kills gradients whenever the true angle is near the wrap-around. AlphaFold2 sidesteps this by predicting $(\sin\alpha, \cos\alpha)$ pairs and supervising *those*:
+Side-chain torsions ($\chi_1$ through $\chi_4$) and backbone torsions ($\phi$, $\psi$, $\omega$) need their own supervision. Torsion angles live on the circle $S^1$, so the naive approach, L2 on the raw angle, has a discontinuity at $\pm \pi$. AlphaFold2 avoids this by predicting $(\sin\alpha, \cos\alpha)$ pairs and supervising those:
 
 <Snippet file="minalphafold/losses.py" symbol="TorsionAngleLoss" />
 
-The loss has two terms: $\ell_2$ between the predicted $(\sin, \cos)$ pair and the ground truth $(\sin, \cos)$, plus a penalty that encourages the predicted pair to lie on the unit circle (i.e., $\sqrt{\sin^2 + \cos^2} = 1$). The unit-circle penalty matters because the model's raw output is a 2D vector that's normalized before being interpreted as an angle — regularizing the raw output to already be approximately unit-norm keeps training stable.
+The loss has two terms: $\ell_2$ between the predicted $(\sin, \cos)$ pair and the ground truth pair, plus a penalty that encourages the predicted pair to lie on the unit circle, meaning $\sqrt{\sin^2 + \cos^2} = 1$. The unit-circle penalty matters because the model's raw output is a 2D vector that gets normalized before being interpreted as an angle. Keeping the raw output close to unit norm stabilizes the learning dynamics.
 
 ### 12.5 pLDDT, distogram, experimentally-resolved, violations
 
-Four more losses round out the full objective. They're mostly classification losses on the auxiliary heads from §11, plus a physical-plausibility loss.
+Four more losses round out the full objective. Most are classification losses attached to the auxiliary heads from §11, plus one physical-plausibility loss.
 
 <Snippet file="minalphafold/losses.py" symbol="PLDDTLoss" />
 
-**pLDDT** is cross-entropy on 50 lDDT-$C_\alpha$ bins. lDDT itself is computed by scanning through all $C_\alpha$ pairs within a distance cutoff and checking how close the predicted distance is to the true distance — a local, alignment-free fidelity measure. The model's pLDDT prediction head is trained to classify which of 50 lDDT bins the per-residue lDDT will fall into. This is a classic "learn to predict your own error" setup, and it gives users the confidence scores they eventually see on predicted structures.
+**pLDDT** is cross-entropy on 50 lDDT-$C_\alpha$ bins. lDDT is computed by scanning through $C_\alpha$ pairs within a distance cutoff and checking how close the predicted distance is to the true distance. It is a local, alignment-free fidelity measure. The pLDDT head is trained to predict which lDDT bin each residue will fall into. This is a classic "learn to predict your own error" setup, and it gives users the confidence scores they eventually see on predicted structures.
 
 <Snippet file="minalphafold/losses.py" symbol="DistogramLoss" />
 
-**Distogram** is cross-entropy on 64 bins of $C_\beta$–$C_\beta$ distance (or pseudo-$C_\beta$ for glycines). It reads from $z$, not from the predicted structure, which means the pair representation has to learn to encode pairwise distances *before* the structure module runs. In practice, this makes the distogram head a rich auxiliary signal that helps the pair stack learn contact-map-like features early in training.
+**Distogram** is cross-entropy on 64 bins of $C_\beta$-$C_\beta$ distance (or pseudo-$C_\beta$ for glycines). It reads from $z$, not from the predicted structure, which means the pair representation has to encode pairwise distance information *before* the Structure Module runs. This makes the distogram head a useful auxiliary signal for the pair stack.
 
 <Snippet file="minalphafold/losses.py" symbol="ExperimentallyResolvedLoss" />
 
-**Experimentally-resolved** is binary cross-entropy per atom — for each of the 14 possible atoms per residue, predict whether it was resolved in the experimental structure. Loops, terminal regions, and some side chains are often missing from crystal structures, and the model needs to know that "not seeing an atom" in the ground truth isn't the same as "the atom doesn't exist." This loss lets the model explicitly reason about what it should and shouldn't be confident about.
+**Experimentally-resolved** is binary cross-entropy per atom. For each of the 14 possible atoms per residue, the model predicts whether that atom was resolved in the experimental structure. Loops, terminal regions, and some side chains are often missing from crystal structures, and the model needs to learn that "not resolved" is not the same as "does not exist."
 
 <Snippet file="minalphafold/losses.py" symbol="StructuralViolationLoss" />
 
-**Structural violations** is the physicality constraint. It has three components: bond length deviations (are consecutive peptide bonds the right length?), bond angle deviations (do the $N$–$C_\alpha$–$C$ and $C_\alpha$–$C$–$N$ angles match chemistry?), and van der Waals clashes (are any two atoms closer than the sum of their VDW radii minus a slack?). Each component is a soft penalty on physically implausible geometries. In practice, this loss is turned on later in training — it's weighted to zero at the start and ramps up — because early in training, the structures are too wrong for "no clashes" to be a productive constraint.
+**Structural violations** is the physicality constraint. It has three components: bond length deviations, bond angle deviations, and van der Waals clashes. Each component is a soft penalty on physically implausible geometry. In the paper training recipe, this loss is used during fine-tuning rather than from the start, because early in training the structures are too wrong for "avoid clashes" to be a productive constraint.
 
 ### 12.6 The combined loss
 
@@ -770,7 +788,13 @@ All of the above land in a single weighted sum:
 
 <Snippet file="minalphafold/losses.py" symbol="AlphaFoldLoss" />
 
-The supplement gives specific weights: FAPE dominates at weight $\approx 0.5$; distogram and masked-MSA each contribute around $0.3$; pLDDT is around $0.01$; experimentally-resolved is around $0.01$; and violations are typically held at $0$ for the first $\sim 85\%$ of training before being turned up. The whole thing is one loss number that gets differentiated.
+The supplement gives specific weights. During the main training stage, the loss is:
+
+$$
+0.5L_\text{FAPE} + 0.5L_\text{aux} + 0.3L_\text{dist} + 2.0L_\text{msa} + 0.01L_\text{conf}.
+$$
+
+During fine-tuning, the experimentally-resolved and structural-violation losses are added with weights $0.01$ and $1.0$, respectively. The whole thing becomes one scalar loss that gets differentiated end-to-end.
 
 <EditorialNote>
   FAPE is the clearest example in the whole AF2 paper of an architectural
@@ -795,86 +819,83 @@ The supplement gives specific weights: FAPE dominates at weight $\approx 0.5$; d
 
 ## 13. Training
 
-The training recipe for AlphaFold2 is where the paper's ambition shows most clearly. The architecture and the loss are one thing; making them converge at scale on biological data is another. minAlphaFold covers most of the training mechanics (cropping, recycling sampling, gradient checkpointing), but it skips one big piece — self-distillation — which we'll call out honestly.
+The training recipe is where the ambition of AlphaFold2 becomes most obvious. The architecture and loss are one thing; making them converge at scale on messy biological data is another. minAlphaFold2 covers most of the training mechanics we need for a faithful pedagogical implementation — cropping, recycling sampling, feature construction, collation, gradient checkpointing — but it skips one major piece: self-distillation. We will call that out honestly.
 
 ### 13.1 Feature engineering
 
-We saw the input feature builders back in §2: <CodeRef file="minalphafold/data.py" symbol="build_target_feat" />, <CodeRef file="minalphafold/data.py" symbol="build_msa_feat" />, <CodeRef file="minalphafold/data.py" symbol="build_extra_msa_feat" />, and <CodeRef file="minalphafold/data.py" symbol="build_template_pair_feat" />. The training-time additions are the supervision-building pipeline — turning raw `.mmcif` files into all the targets the losses in §12 need:
+We saw the input feature builders back in §2: <CodeRef file="minalphafold/data.py" symbol="build_target_feat" />, <CodeRef file="minalphafold/data.py" symbol="build_msa_feat" />, <CodeRef file="minalphafold/data.py" symbol="build_extra_msa_feat" />, and <CodeRef file="minalphafold/data.py" symbol="build_template_pair_feat" />. The training-time additions are the supervision builders, which turn raw `.mmcif` files into all the targets required by the losses in §12:
 
-<Snippet file="minalphafold/data.py" symbol="build_processed_example" />
+<Snippet file="minalphafold/data.py" lines="961-990" title="build_processed_example" />
 
-This extracts atom14 coordinates and masks from the crystal structure, builds ground-truth backbone frames via `rigid_frame_from_three_points`, computes torsion angles from $\phi$/$\psi$/$\omega$/$\chi_{1..4}$, and produces the per-residue lDDT and distogram targets. The output is a single processed example dict that flows through the rest of the pipeline.
+This wrapper crops the raw example and delegates to the cropped-example builder. Downstream of that call, the data path extracts atom14 coordinates and masks from the experimental structure, builds ground-truth backbone frames via `rigid_frame_from_three_points`, computes torsion angles from $\phi$/$\psi$/$\omega$/$\chi_{1..4}$, and produces the supervised tensors consumed by the losses. The output is a single processed-example dictionary that flows through the rest of the pipeline.
 
 ### 13.2 Cropping
 
-Real proteins can be thousands of residues long. The full Evoformer at paper-spec config, with 48 blocks and triangle multiplication's $O(r^3)$ scaling, would not fit in any single-GPU memory budget for $r > \sim 400$. AlphaFold2's answer is to **train on crops** — random contiguous windows of a fixed length $N_\text{crop}$ (usually 256 residues) sampled from each protein.
+Real proteins can be thousands of residues long. The full Evoformer at paper-spec config, with 48 blocks and triangle multiplication's $O(r^3)$ scaling, becomes extremely expensive as $r$ grows. AlphaFold2's answer is to **train on crops**: random contiguous windows of a fixed length $N_\text{crop}$, usually 256 residues, sampled from each protein.
 
-<Snippet file="minalphafold/data.py" symbol="build_processed_example_from_cropped" />
+<Snippet file="minalphafold/data.py" lines="993-1051" title="build_processed_example_from_cropped" />
 
-The cropping is random contiguous: pick a start index uniformly, take $N_\text{crop}$ consecutive residues, and feature-engineer the crop. This has a nontrivial effect on supervision — the model only ever sees pieces of proteins at training time, and yet it still has to generalize to full-length proteins at inference. The evidence that this works is mostly empirical: the triangle-consistency inductive biases in the Evoformer, combined with the SE(3)-equivariant Structure Module, are apparently enough that local structural relationships learned on crops compose reasonably to full proteins.
+The cropping is random contiguous: pick a start index uniformly, take $N_\text{crop}$ consecutive residues, and build features for that crop. This has a nontrivial implication. The model often trains on pieces of proteins but must generalize to full-length proteins at inference. Empirically, the triangle-consistency inductive biases in the Evoformer and the geometry of the Structure Module are strong enough that local structural relationships learned on crops compose reasonably well.
 
 ### 13.3 Batch collation
 
-With variable-length crops (some proteins are shorter than 256), we need to pad and mask. `collate_batch` does both:
+With variable-length crops, since some proteins are shorter than the crop size, we need to pad and mask. `collate_batch` does both:
 
-<Snippet file="minalphafold/data.py" symbol="collate_batch" />
+<Snippet file="minalphafold/data.py" lines="1054-1237" title="collate_batch" />
 
-Every feature tensor in the batch is padded to the largest example in the batch, and a `seq_mask` tensor is threaded through every attention operation to blackout the padded positions. Attention scores at padded indices go to $-\infty$ before softmax, and outputs at padded positions are discarded before loss computation. You'll see `seq_mask` passed into nearly every module in minAlphaFold for this reason.
+Every feature tensor in the batch is padded to the largest example in the batch, and a `seq_mask` tensor is threaded through the attention operations to block out padded positions. Attention scores at padded indices go to $-\infty$ before softmax, and outputs at padded positions are ignored before loss computation. This is why masks appear everywhere in minAlphaFold2.
 
 ### 13.4 Recycling sampling
 
-We covered the mechanics of recycling in §9 — feed previous-cycle outputs back into current-cycle inputs, detach gradients between cycles. What changes at training time is that the **number of cycles is sampled uniformly** for each batch:
+We covered the mechanics of recycling in §9: feed previous-cycle outputs back into current-cycle inputs, then detach gradients between cycles. What changes at training time is that the **number of cycles is sampled uniformly**:
 
 ```python
 n_cycles = random.randint(1, max_cycles)  # uniform during training
 ```
 
-This forces the model to produce usable representations at every cycle count, not just the max. A model trained only with 4 cycles would specialize its weights for the 4-cycle case; with uniform cycle sampling, the weights have to handle 1-cycle, 2-cycle, ..., $n$-cycle all reasonably. The combined effect is that recycling works at inference time from the first cycle onward, and the refinement over cycles is monotonic.
+This forces the model to produce usable representations at many cycle counts, not just the maximum. A model trained only with 4 cycles could specialize to the 4-cycle case. With uniform cycle sampling, the weights must handle 1-cycle, 2-cycle, ..., $n$-cycle inputs reasonably well.
 
 ### 13.5 Gradient checkpointing
 
-The full Evoformer at 48 blocks, with 4 cycles, and with triangle multiplication's $O(r^3)$ cost, has an activation memory footprint that dwarfs the parameter count by orders of magnitude. PyTorch's `torch.utils.checkpoint` trades compute for memory by not storing intermediate activations during the forward pass — instead, during the backward pass, the forward is re-run for each checkpointed block to reconstruct the activations.
+The full Evoformer at 48 blocks, with recycling and triangle multiplication's $O(r^3)$ cost, has an activation memory footprint that can easily dominate the parameter memory. PyTorch's `torch.utils.checkpoint` trades compute for memory by not storing intermediate activations during the forward pass. During the backward pass, the forward is re-run for each checkpointed block to reconstruct those activations.
 
-In minAlphaFold, gradient checkpointing wraps every Evoformer block and every extra-MSA block. The practical effect is that training memory scales linearly with the number of checkpointed units rather than with the full computation depth. Without it, paper-spec AF2 would not fit in 80 GB of GPU memory; with it, it does.
+In minAlphaFold2, gradient checkpointing wraps every Evoformer block and every extra-MSA block. The practical effect is simple: spend more compute so you can store fewer activations. For a model where the expensive parts are repeated dozens of times, this is the difference between a runnable training script and one that runs out of memory immediately.
 
 ### 13.6 The honest gap: self-distillation
 
-The full AlphaFold2 training procedure has one piece that minAlphaFold does not implement: **self-distillation**. In the full procedure, a first model is trained on the PDB (roughly 150k structures). Then that model is used to predict structures for millions of unlabeled protein sequences from UniClust. Predictions with high pLDDT ($> 70$) are retained as pseudo-ground-truth, and a second model is trained on the union of real PDB structures and self-distilled pseudo-structures.
+The full AlphaFold2 training procedure has one piece that minAlphaFold2 does not implement: **self-distillation**. In the full procedure, an undistilled model is trained on known PDB structures. That model is then used to predict structures for large numbers of unlabeled protein sequences from Uniclust30. High-confidence predicted structures are retained as pseudo-ground-truth and mixed with real PDB structures during training.
 
-Self-distillation is worth roughly a point or two of GDT on CASP14 benchmarks — not huge, but not trivial. It's also a lot of infrastructure: two-stage training, a prediction run at scale across a massive sequence database, and careful quality filtering of the pseudo-labels.
+One important detail: in the supplement, the filtering metric for the distillation set is not pLDDT but a KL-based confidence metric computed from predicted aligned error-like distributions; the authors note that pLDDT would likely work as well or better. Either way, the conceptual role is the same. Self-distillation lets the model learn from unlabeled sequence space, but it requires substantial infrastructure: two-stage training, a massive prediction run, and careful filtering of pseudo-labels.
 
 <EditorialNote>
-  minAlphaFold leaves self-distillation as a deliberate gap — the repo's
-  README calls it out as a TODO. The practical implications: if you train
-  minAlphaFold end-to-end on just the PDB using the configs provided, you
-  can expect to get to within a few points of CASP14-level accuracy, but
-  not all the way there. For a pedagogical walkthrough, this is the right
-  call — self-distillation is orthogonal to the ideas that make AlphaFold2
-  <em>work</em>, and folding it in would add roughly 2,000 words of pipeline
-  plumbing without new conceptual content. I'm noting it here so nobody
-  thinks they've been handed a faithful reproduction of the full training
-  recipe.
+  minAlphaFold2 leaves self-distillation as a deliberate gap. Self-distillation matters for final accuracy, but it is
+  mostly a data-generation and training-infrastructure story rather than a new
+  architectural idea. Including it faithfully would add a large amount of
+  pipeline plumbing without changing the conceptual account of Evoformer,
+  recycling, IPA, or FAPE. I am noting the gap here so that nobody confuses
+  this implementation with a fully faithful reproduction of DeepMind's entire
+  training recipe.
 </EditorialNote>
 
 ### 13.7 The training loop itself
 
 Everything above lands in a single training loop:
 
-<Snippet file="minalphafold/trainer.py" symbol="train_step" />
+<Snippet file="minalphafold/trainer.py" lines="722-750" title="train_step" />
 
-Pretty standard PyTorch mechanics — a forward pass through the model with the right `n_cycles`, an `AlphaFoldLoss` call on the outputs, `.backward()`, a gradient clipping step, an optimizer step. The learning rate schedule is warmup-plus-decay (linear warmup for the first ~1000 steps, constant or square-root decay after). Most of the interesting work is in the model and the loss; the training loop itself fits on one screen.
+The loop itself is standard PyTorch: a forward pass through the model with the right `n_cycles`, an `AlphaFoldLoss` call on the outputs, `.backward()`, gradient clipping, and an optimizer step. The learning-rate schedule is warmup plus decay. Most of the interesting work is in the model and loss; the training loop itself fits on one screen.
 
-With that, we have the full pipeline: input features, Evoformer, Structure Module, auxiliary heads, losses, and training procedure. The last two sections of the annotation make it concrete — §14 walks through a real overfit-single-PDB run with a structure viewer, and §15 points at where AF2 has since been extended.
+With that, we have the full pipeline: input features, Evoformer, Structure Module, auxiliary heads, losses, and training procedure. The last two sections make this concrete. §14 walks through a real single-PDB overfit run with a structure viewer, and §15 points at what AlphaFold2 left open.
 
 ## 14. A real-world walkthrough
 
-We've built up enough machinery. Thirteen sections of architecture, loss, and training. So what does it look like when you actually run this thing?
+We have now built up enough machinery. Thirteen sections of architecture, geometry, loss functions, and training details. So what does it look like when you actually run this thing?
 
-The cleanest test — the one that convinces you the pipeline works end-to-end — is a **single-protein overfit.** Pick one PDB, feed it to the model as both input (sequence) and target (coordinates), and train until the model memorizes the structure. If the whole pipeline is coherent — features, Evoformer, Structure Module, loss, optimizer — the predicted coordinates should converge to the ground truth in a handful of minutes on CPU. If anything is broken (a wrong sign in a gradient, a frame convention mismatch, a loss that's computed in the wrong space), the overfit will fail. It's a tiny test that exercises everything.
+The cleanest test, and the one that convinces you the pipeline works end-to-end, is a **single-protein overfit**. Pick one PDB, feed it to the model as both input sequence and target coordinates, and train until the model memorizes the structure. If the whole pipeline is coherent — features, Evoformer, Structure Module, loss, optimizer — the predicted coordinates should move toward the ground truth even on CPU. If something important is wrong, such as a sign error in a frame update or a loss computed in the wrong coordinate system, the overfit will usually fail. It is a small test, but it exercises almost everything.
 
 ### 14.1 The setup
 
-The protein I'm using is **1CRN** — crambin, a 46-residue plant protein with three disulfide bonds. It's small enough to train on a laptop CPU in under a minute, and interesting enough geometrically that a random-init model will get it embarrassingly wrong at step 0 and recognizably correct by step 600.
+The protein I'm using is **1CRN**, crambin, a 46-residue plant protein with three disulfide bonds. It is small enough to train on a laptop CPU in under a minute, but geometrically nontrivial enough that a random-initialized model gets it very wrong at step 0 and recognizably right by step 600.
 
 The driver script lives at `scripts/overfit_single_pdb.py` in the minAlphaFold repo. Simplified to the essentials:
 
@@ -884,7 +905,7 @@ example = build_minimal_example("1crn", parsed)
 batch = collate_batch([example], crop_size=n_res, msa_depth=1,
                       extra_msa_depth=0, max_templates=0, ...)
 
-model = AlphaFold2(load_model_config("tiny"))    # 0.09M params, 2 Evoformer blocks
+model = AlphaFold2(load_model_config("tiny"))    # 0.09M params, 1 Evoformer block
 loss_fn = AlphaFoldLoss(finetune=False)
 optimizer = build_optimizer(model, TrainingConfig(learning_rate=1e-3, ...))
 
@@ -897,42 +918,41 @@ for step in range(1, 601):
     optimizer.step()
 ```
 
-A few things worth flagging about this setup. The MSA has exactly one sequence — the query itself. Templates are disabled. Extra MSA is disabled. We're running the **tiny** profile (90k parameters, 2 Evoformer blocks, shallow Structure Module) — not full paper-spec AF2, which would be ~93M parameters. And we're training with the same sequence and same target for every step, so there's no generalization happening here; the model is literally memorizing one structure.
+A few things are worth flagging about this setup. The MSA has exactly one sequence: the query itself. Templates are disabled. Extra MSA is disabled. We are running the **tiny** profile, which has about 90k parameters, 1 Evoformer block, and a shallow Structure Module, not full paper-spec AlphaFold2. And we are training with the same sequence and the same target at every step, so there is no generalization happening here. The model is memorizing one structure.
 
 <EditorialNote>
-  That's what makes this a pipeline test, not a science test. If your
-  90k-parameter model running on a single protein for 600 steps converges
-  to the right geometry, that doesn't mean AlphaFold2 works — it means
-  your implementation of the pipeline is coherent enough that gradient
-  descent on FAPE can drive coordinates toward ground truth. That's a low
-  bar. But it's a necessary bar, and it catches an enormous number of
-  bugs. "Does my loss go down?" is easy. "Does the predicted structure
-  start looking like the real one?" is the real question, and the overfit
-  is the cheapest way I know to answer it.
+  This is what makes the run a pipeline test rather than a science test. If a
+  90k-parameter model running on one protein for 600 steps converges toward
+  the right geometry, that does not mean AlphaFold2 generalizes. It means the
+  implementation is coherent enough that gradient descent on FAPE can drive
+  coordinates toward ground truth. That is a low bar, but it is a necessary
+  one, and it catches an enormous number of bugs. "Does my loss go down?" is
+  too weak a question. "Does the predicted structure start looking like the
+  real one?" is the real test.
 </EditorialNote>
 
 ### 14.2 What actually happens
 
-The widget below loads 11 checkpoints from a real run — the same code as above, executed on CPU, producing a trajectory from random-init (step 0) to converged (step 600). Drag the scrubber, hit play, or click Reset. The gray cartoon is the ground truth. The colored (or solid red, depending on the toggle) cartoon is the prediction at whichever step you've parked on.
+The widget below loads 11 checkpoints from a real run: the same code as above, executed on CPU, producing a trajectory from random initialization at step 0 to the step-600 prediction. Drag the scrubber, hit play, or click Reset. The gray cartoon is the ground truth. The colored cartoon (or solid red, depending on the toggle) is the prediction at the selected step.
 
 <StructureViewer client:visible />
 
-The story the scrubber tells:
+The story the scrubber tells is roughly the following:
 
-- **Step 0–10**: the prediction is random. Cα RMSD is ~9.7 Å — essentially saying "these residues could be anywhere." The Structure Module has just produced 46 backbone frames by unrolling IPA from Gaussian-noise weights; there's no reason they'd correspond to anything.
-- **Step 10–100**: the model starts to contract. FAPE's gradient is pulling every residue into rough proximity of every other residue's ground-truth view. Still very wrong, but the blob is shrinking.
-- **Step 100–300**: phase transition. Around step 145, the prediction starts to look like a protein — you can see secondary structure emerging in places. Cα RMSD drops below 10 Å consistently, then below 8 Å by step 300.
-- **Step 300–600**: convergence. The model is now learning the *specific* fold of 1CRN — the three-helix bundle and the disulfide-bonded topology. By step 600, Cα RMSD has dropped to ~2.25 Å, which is close enough that the prediction and the ground truth visibly overlay.
+- **Step 0-10**: the prediction is essentially random. Cα RMSD is about 9.7 Å. The Structure Module has produced 46 backbone frames from random weights, so there is no reason yet to expect a protein-like structure.
+- **Step 10-100**: the model starts to contract and organize. FAPE's gradient is pulling each residue toward consistency with many local-frame views of the ground truth. The prediction is still quite wrong, but it is less diffuse.
+- **Step 100-300**: the structure starts to become recognizable. Around step 145, the prediction begins to look protein-like, and by step 295, Cα RMSD is about 7.4 Å.
+- **Step 300-600**: the model learns the specific fold of 1CRN: a compact mixed alpha/beta structure constrained by three disulfide bonds. By step 600, Cα RMSD has dropped to about 2.25 Å, close enough that the prediction and ground truth visibly overlay.
 
-Total wall time: roughly 30 seconds on a single CPU core. Total parameters: 90,000 — three orders of magnitude smaller than paper-spec AF2, which has 93 million. This is what the "tiny" profile is good for — a smoke test that exercises every code path in the model with minimal time and memory.
+Total wall time: roughly 30 seconds on a single CPU core. Total parameters: about 90,000, roughly three orders of magnitude smaller than paper-spec AF2. This is what the `tiny` profile is good for: a smoke test that exercises the model with minimal time and memory.
 
 ### 14.3 What this does and doesn't tell us
 
-The overfit says: **the pipeline is coherent.** Features get built correctly, the Evoformer maps them through, the Structure Module produces frames, FAPE computes a sensible gradient, the backbone update and all-atom reconstruction compose into plausible coordinates, and optimization drives all of that towards the ground truth. Every line of code from §§2–13 just got exercised in a single forward-backward loop, and the result is a structure that — by the end — looks like a real protein.
+The overfit says: **the pipeline is coherent.** Features get built correctly, the Evoformer maps them through, the Structure Module produces frames, FAPE computes a useful gradient, the backbone update and all-atom reconstruction compose into plausible coordinates, and optimization drives all of this toward the ground truth. Every major code path from §§2-13 is exercised in a single forward-backward loop, and the final structure looks like a real protein.
 
-It does not say: **AlphaFold2 generalizes.** The model has seen exactly one protein. Step 600's 2.25 Å Cα RMSD is memorization, not prediction. Real AF2 training runs on the entire Protein Data Bank (~150k structures), with deep MSAs, templates, self-distillation on millions of unlabeled sequences, and hundreds of GPU-days of compute — a world apart from a laptop CPU and one PDB.
+It does not say: **AlphaFold2 generalizes.** The model has seen exactly one protein. Step 600's 2.25 Å Cα RMSD is memorization, not prediction. Real AlphaFold2 training uses known PDB structures, deep MSAs, templates, self-distillation on large unlabeled sequence sets, and enormous compute. That is a world apart from a laptop CPU and one PDB.
 
-But the overfit is still the most satisfying "does my code actually work" demo I know of, because it makes the progress of the training loop visible in the domain that matters. A loss curve going down could be literally anything; a structure morphing from noise into crambin is a loss curve going down *because the model is learning geometry*. You can't fake it.
+Even so, the overfit is still the most satisfying "does my code actually work?" demo I know of, because it makes progress visible in the domain that matters. A loss curve going down could mean many things. A structure moving from random geometry into crambin means the loss is going down for the right reason.
 
 If you'd like to run it yourself, the command is:
 
@@ -941,41 +961,38 @@ If you'd like to run it yourself, the command is:
 python scripts/overfit_single_pdb.py --pdb path/to/1crn.pdb --steps 600 --model-profile tiny
 ```
 
-It'll write its own PDBs and metrics to `artifacts/overfit_single_pdb/1crn/`. Watch the per-step log — seeing Cα RMSD drop in real time does the same job as the widget above, just without the 3D rendering.
+It will write its own PDBs and metrics to `artifacts/overfit_single_pdb/1crn/`. Watch the per-step log. Seeing Cα RMSD drop in real time does the same job as the widget above, just without the 3D rendering.
 
 ## 15. What AlphaFold2 left unsolved
 
-AlphaFold2 changed everything in structural biology, and like any result that changes everything, it also sharpened the shape of what comes next. The paper solved monomeric protein structure prediction for the large fraction of proteins with reasonable MSA coverage. That turned out to be a lot of proteins — the AlphaFold Protein Structure Database now covers nearly every sequenced protein in every major organism. But it left open a long list of things that real biology cares about:
+AlphaFold2 changed structural biology, and like most field-changing results, it also clarified the next set of problems. The paper largely solved monomeric protein structure prediction for proteins with reasonable MSA coverage. That turned out to be an enormous class of proteins. But real biology cares about many things that are not fully captured by "predict the most likely monomer structure from a sequence":
 
-**Protein complexes.** Proteins rarely act alone — they form complexes with other proteins, with DNA, with small molecules, and with membranes. AF2 was trained on monomers and struggles with multimeric structures. **AlphaFold-Multimer** (2021) extended the training and inference to complexes, and **AlphaFold3** (2024) went further — a redesigned architecture, diffusion-based output, and a scope that includes nucleic acids, ligands, and post-translational modifications.
+**Protein complexes.** Proteins rarely act alone. They form complexes with other proteins, DNA, RNA, small molecules, ions, and membranes. AF2 was built primarily around monomeric protein structure prediction. **AlphaFold-Multimer** extended the system to complexes, and **AlphaFold3** went further with a redesigned architecture, diffusion-based output, and a scope that includes nucleic acids, ligands, and post-translational modifications.
 
-**Dynamics.** Proteins aren't static. They breathe, they flex, they transition between conformations that are functionally distinct. AF2 predicts a single "most likely" structure, which is often enough for structural biology but not for enzyme mechanisms, allosteric regulation, or anything involving a motion-dependent function. Extensions like **MSA-clustering methods** (Wayment-Steele et al.) coax multi-state predictions out of AF2 by perturbing the input MSA, and diffusion-based successors like **AlphaFold3** and **Boltz-1** have native mechanisms for sampling conformational diversity.
+**Dynamics.** Proteins are not static. They breathe, flex, and transition between conformations that may be functionally distinct. AF2 predicts a single likely structure, which is often enough for structural biology but not always enough for enzyme mechanisms, allosteric regulation, or motion-dependent function. MSA-clustering methods can coax multiple states out of AF2 by perturbing the input MSA, while diffusion-based successors such as **AlphaFold3** and **Boltz-1** are better suited to sampling.
 
-**Design.** Structure prediction is the forward problem: sequence → structure. The inverse problem — "give me a sequence that folds into this structure" — is protein design, and it's as important scientifically but uses different tooling. **RoseTTAFold Diffusion**, **ProteinMPNN**, and (more recently) **AlphaProteo** all live in this inverse space, and they tend to use AF2-descended representations to evaluate their designs but not to generate them.
+**Design.** Structure prediction is the forward problem: sequence → structure. The inverse problem, "give me a sequence that folds into this structure," is protein design. **RoseTTAFold Diffusion**, **ProteinMPNN**, and **AlphaProteo** all live in or adjacent to this inverse space. They often use AF2-descended ideas to evaluate designs, but the generative problem is different.
 
-**Language-model shortcuts.** Perhaps the most interesting follow-up is the shift toward models that replace the MSA entirely. **ESMFold** (Meta, 2022) uses a pretrained protein language model in place of the MSA pipeline, arguing that a large enough transformer has already learned the co-evolutionary patterns the MSA was there to surface. **ESM3** (EvolutionaryScale, 2024) goes further — a single multimodal model trained jointly on sequence, structure, and function, positioning itself as a general-purpose biological foundation model rather than a structure-prediction specialist. I've written a [multi-part primer on protein language models](https://chrishayduk.com) that traces this arc from AF2 through ESM3 in much more detail.
+**Language-model shortcuts.** Perhaps the most interesting follow-up is the shift toward models that replace the MSA entirely. **ESMFold** uses a pretrained protein language model in place of the MSA pipeline, with the implicit claim that a large enough protein transformer has already learned many of the co-evolutionary patterns the MSA was meant to surface. **ESM3** goes further by training jointly on sequence, structure, and function, positioning itself as a more general biological foundation model rather than a structure-prediction specialist. I've written a [multi-part primer on protein language models](https://chrishayduk.com) that traces this arc from AF2 through ESM3 in more detail.
 
-**Compute and inference cost.** AF2's training run was enormous, and its per-sequence inference cost isn't cheap either. A lot of real-world work — drug discovery, enzyme engineering, synthetic biology — can't afford 100 GPU-seconds per prediction. The successors trying to bring these costs down (ESMFold for MSA-free inference, distillation-based approaches, and the compute-optimized architectures in AlphaFold3) are responses to this constraint.
+**Compute and inference cost.** AF2's training run was enormous, and its per-sequence inference cost is not trivial either, especially when MSA search is included. A lot of real-world work in drug discovery, enzyme engineering, and synthetic biology benefits from cheaper, faster predictions. ESMFold, distillation-based approaches, and newer compute-optimized architectures are all responses to this constraint.
 
 <EditorialNote>
   One of the more interesting meta-observations about this space is how many
-  of the specific architectural choices in AF2 turned out to be load-bearing
-  and how many turned out to be incidental. The Evoformer's triangle updates,
-  IPA, and FAPE are in almost every paper that followed, in roughly the same
-  form. Recycling is universal. The specific MSA pipeline is already halfway
-  obsolete. The 8-iteration Structure Module has been replaced in successors
-  by denoising diffusion. The training recipe (self-distillation, MSA
-  clustering) has been reworked.
+  of AF2's architectural choices turned out to be load-bearing and how many
+  turned out to be replaceable. The triangle updates, IPA-style geometric
+  reasoning, FAPE-like losses, and recycling all proved extremely influential.
+  The specific MSA pipeline is already less central than it looked in 2021.
+  The Structure Module has been rethought in diffusion-based successors. The
+  training recipe has also been reworked.
 
-  If you read AF2 as the 2021 paper it is, you'll notice design choices that
-  look obvious in hindsight but were not at all obvious at the time. And
-  you'll notice choices that <em>looked</em> obvious at the time that turned
-  out to be disposable. This is a healthy thing to keep in mind while reading
-  any big result — not every component of a landmark paper deserves to be a
-  permanent fixture of the field. The authors of the next AlphaFold-ish paper
-  will know which is which.
+  This is useful to keep in mind when reading any landmark paper. Some
+  components become permanent conceptual machinery for the field. Others are
+  historically important because they made the first working system possible,
+  but later get swapped out. AlphaFold2 is especially worth reading because it
+  contains both kinds of idea.
 </EditorialNote>
 
 — end —
 
-If you've made it this far, thank you for reading! If you found this useful, I write regularly about AI, biology, and adjacent topics at [chrishayduk.com](https://chrishayduk.com). The annotation project continues — the next paper up is open, but ESM-2, AlphaFold3, and Boltz-1 are all on the shortlist. Suggestions welcome.
+If you've made it this far, thank you for reading! If you found this useful, I write regularly about AI, biology, and adjacent topics at [chrishayduk.com](https://chrishayduk.com). The annotation project will continue from here. ESM-2, ESMFold, ESM-3, and AlphaFold3 are all on the shortlist.

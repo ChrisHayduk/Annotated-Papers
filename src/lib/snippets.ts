@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 
 const VENDOR_ROOT = resolve(process.cwd(), 'vendor/min-AlphaFold');
 const REPO_URL = 'https://github.com/ChrisHayduk/minAlphaFold2';
-const DEFAULT_COMMIT = process.env.MIN_ALPHAFOLD_COMMIT ?? '1aa629bef31300b0f9bc32235bfe8f95a8ff09e6';
+const DEFAULT_COMMIT = process.env.MIN_ALPHAFOLD_COMMIT ?? '7e3e6d4f4c050391438450e9b7a361490b49f90e';
 
 export interface ExtractOptions {
   start?: number;
