@@ -61,6 +61,215 @@ async function load3Dmol() {
   return import('3dmol/build/3Dmol.es6-min.js');
 }
 
+type Point3 = { x: number; y: number; z: number };
+type Quaternion = { x: number; y: number; z: number; w: number };
+type CoevolViewerWithAnimation = {
+  __coevolRotationAnimation?: number;
+  rotationGroup?: { quaternion?: any };
+  show?: () => void;
+  render?: () => void;
+};
+
+function pointFromAtom(atom: any): Point3 | null {
+  if (!atom) return null;
+  const { x, y, z } = atom;
+  return Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z) ? { x, y, z } : null;
+}
+
+function add3(a: Point3, b: Point3): Point3 {
+  return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
+}
+
+function sub3(a: Point3, b: Point3): Point3 {
+  return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
+}
+
+function mul3(a: Point3, s: number): Point3 {
+  return { x: a.x * s, y: a.y * s, z: a.z * s };
+}
+
+function dot3(a: Point3, b: Point3): number {
+  return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+function cross3(a: Point3, b: Point3): Point3 {
+  return {
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x,
+  };
+}
+
+function norm3(a: Point3): number {
+  return Math.hypot(a.x, a.y, a.z);
+}
+
+function normalize3(a: Point3): Point3 | null {
+  const n = norm3(a);
+  if (n < 1e-6) return null;
+  return mul3(a, 1 / n);
+}
+
+function averagePoint(points: Point3[]): Point3 | null {
+  if (!points.length) return null;
+  const sum = points.reduce((acc, point) => add3(acc, point), { x: 0, y: 0, z: 0 });
+  return mul3(sum, 1 / points.length);
+}
+
+function fallbackPerpendicular(axis: Point3): Point3 {
+  const ref = Math.abs(axis.x) < 0.8 ? { x: 1, y: 0, z: 0 } : { x: 0, y: 1, z: 0 };
+  return normalize3(cross3(axis, ref)) ?? { x: 0, y: 0, z: 1 };
+}
+
+function normalizeQuaternion(q: Quaternion): Quaternion {
+  const n = Math.hypot(q.x, q.y, q.z, q.w);
+  if (n < 1e-6) return { x: 0, y: 0, z: 0, w: 1 };
+  return { x: q.x / n, y: q.y / n, z: q.z / n, w: q.w / n };
+}
+
+function quaternionDot(a: Quaternion, b: Quaternion): number {
+  return a.x * b.x + a.y * b.y + a.z * b.z + a.w * b.w;
+}
+
+function slerpQuaternion(from: Quaternion, rawTo: Quaternion, t: number): Quaternion {
+  let to = rawTo;
+  let dot = quaternionDot(from, to);
+  if (dot < 0) {
+    to = { x: -to.x, y: -to.y, z: -to.z, w: -to.w };
+    dot = -dot;
+  }
+  if (dot > 0.9995) {
+    return normalizeQuaternion({
+      x: from.x + t * (to.x - from.x),
+      y: from.y + t * (to.y - from.y),
+      z: from.z + t * (to.z - from.z),
+      w: from.w + t * (to.w - from.w),
+    });
+  }
+
+  const theta0 = Math.acos(Math.max(-1, Math.min(1, dot)));
+  const sinTheta0 = Math.sin(theta0);
+  const theta = theta0 * t;
+  const scaleFrom = Math.sin(theta0 - theta) / sinTheta0;
+  const scaleTo = Math.sin(theta) / sinTheta0;
+  return normalizeQuaternion({
+    x: from.x * scaleFrom + to.x * scaleTo,
+    y: from.y * scaleFrom + to.y * scaleTo,
+    z: from.z * scaleFrom + to.z * scaleTo,
+    w: from.w * scaleFrom + to.w * scaleTo,
+  });
+}
+
+function quaternionFromRotationRows(xAxis: Point3, yAxis: Point3, zAxis: Point3): Quaternion {
+  const m00 = xAxis.x;
+  const m01 = xAxis.y;
+  const m02 = xAxis.z;
+  const m10 = yAxis.x;
+  const m11 = yAxis.y;
+  const m12 = yAxis.z;
+  const m20 = zAxis.x;
+  const m21 = zAxis.y;
+  const m22 = zAxis.z;
+  const trace = m00 + m11 + m22;
+
+  if (trace > 0) {
+    const s = Math.sqrt(trace + 1) * 2;
+    return normalizeQuaternion({
+      w: 0.25 * s,
+      x: (m21 - m12) / s,
+      y: (m02 - m20) / s,
+      z: (m10 - m01) / s,
+    });
+  }
+  if (m00 > m11 && m00 > m22) {
+    const s = Math.sqrt(1 + m00 - m11 - m22) * 2;
+    return normalizeQuaternion({
+      w: (m21 - m12) / s,
+      x: 0.25 * s,
+      y: (m01 + m10) / s,
+      z: (m02 + m20) / s,
+    });
+  }
+  if (m11 > m22) {
+    const s = Math.sqrt(1 + m11 - m00 - m22) * 2;
+    return normalizeQuaternion({
+      w: (m02 - m20) / s,
+      x: (m01 + m10) / s,
+      y: 0.25 * s,
+      z: (m12 + m21) / s,
+    });
+  }
+  const s = Math.sqrt(1 + m22 - m00 - m11) * 2;
+  return normalizeQuaternion({
+    w: (m10 - m01) / s,
+    x: (m02 + m20) / s,
+    y: (m12 + m21) / s,
+    z: 0.25 * s,
+  });
+}
+
+function smoothRotateViewerToQuaternion(viewer: CoevolViewerWithAnimation, target: Quaternion) {
+  const current = viewer.rotationGroup?.quaternion;
+  if (!current || typeof window === 'undefined') return false;
+
+  if (viewer.__coevolRotationAnimation) {
+    window.cancelAnimationFrame(viewer.__coevolRotationAnimation);
+  }
+
+  const start = normalizeQuaternion({
+    x: current.x ?? 0,
+    y: current.y ?? 0,
+    z: current.z ?? 0,
+    w: current.w ?? 1,
+  });
+  const end = normalizeQuaternion(target);
+  const durationMs = 850;
+  const startTime = window.performance.now();
+
+  const step = (now: number) => {
+    const rawT = Math.min(1, (now - startTime) / durationMs);
+    const easedT = 1 - Math.pow(1 - rawT, 3);
+    const q = slerpQuaternion(start, end, easedT);
+    current.x = q.x;
+    current.y = q.y;
+    current.z = q.z;
+    current.w = q.w;
+    current.normalize?.();
+    viewer.show?.();
+
+    if (rawT < 1) {
+      viewer.__coevolRotationAnimation = window.requestAnimationFrame(step);
+    } else {
+      viewer.__coevolRotationAnimation = undefined;
+      viewer.render?.();
+    }
+  };
+
+  viewer.__coevolRotationAnimation = window.requestAnimationFrame(step);
+  return true;
+}
+
+function orientViewerToPair(viewer: any, pointI: Point3, pointJ: Point3) {
+  const pairAxis = normalize3(sub3(pointJ, pointI));
+  if (!pairAxis) return;
+
+  const midpoint = mul3(add3(pointI, pointJ), 0.5);
+  const caPoints = (viewer.selectedAtoms({ atom: 'CA' }) ?? [])
+    .map(pointFromAtom)
+    .filter((point: Point3 | null): point is Point3 => point !== null);
+  const proteinCenter = averagePoint(caPoints) ?? midpoint;
+  const outward = sub3(midpoint, proteinCenter);
+  const perpendicularOutward = sub3(outward, mul3(pairAxis, dot3(outward, pairAxis)));
+  const zAxis = normalize3(perpendicularOutward) ?? fallbackPerpendicular(pairAxis);
+  const yAxis = normalize3(cross3(zAxis, pairAxis)) ?? fallbackPerpendicular(zAxis);
+  const correctedZAxis = normalize3(cross3(pairAxis, yAxis)) ?? zAxis;
+  const q = quaternionFromRotationRows(pairAxis, yAxis, correctedZAxis);
+  if (smoothRotateViewerToQuaternion(viewer, q)) return;
+
+  const view = viewer.getView();
+  viewer.setView([view[0], view[1], view[2], view[3], q.x, q.y, q.z, q.w], true);
+}
+
 // Presets picked from the top-L coupling list. `i` and `j` are 1-indexed
 // alignment columns; `label` / `subtitle` describe the pair using the
 // PDB's residue numbering (which is what anyone reading a DCA or
@@ -741,6 +950,12 @@ function StructurePanel({
   const viewerRef = useRef<any>(null);
   const [ready, setReady] = useState(false);
   const [vError, setVError] = useState<string | null>(null);
+  const distanceBadge = useMemo(() => {
+    if (!selected) return null;
+    const distance = data.distance[selected.i - 1]?.[selected.j - 1];
+    if (distance === null || typeof distance === 'undefined') return null;
+    return `${distance.toFixed(1)} Å`;
+  }, [selected, data.distance]);
 
   // Initialize 3Dmol viewer once the container is mounted.
   useEffect(() => {
@@ -792,6 +1007,8 @@ function StructurePanel({
       // and skips missing residues, so col 116 ≠ PDB resi 116.
       const resiI = data.column_pdb_residues[i - 1];
       const resiJ = data.column_pdb_residues[j - 1];
+      const pointI = pointFromAtom(viewer.selectedAtoms({ resi: resiI, atom: 'CA' })?.[0]);
+      const pointJ = pointFromAtom(viewer.selectedAtoms({ resi: resiJ, atom: 'CA' })?.[0]);
 
       viewer.setStyle({ resi: `${resiI}` }, {
         cartoon: { color: '#e8a1a1', thickness: 1.2 },
@@ -806,28 +1023,29 @@ function StructurePanel({
         sphere: { color: '#a1c8e8', radius: 1.2 },
       });
 
-      // Dashed line between the two Cα atoms
-      viewer.addLine({
-        start: { resi: `${resiI}`, atom: 'CA' },
-        end: { resi: `${resiJ}`, atom: 'CA' },
-        dashed: true,
-        color: 'white',
-        linewidth: 3,
-      });
+      // Visible distance edge between the two Cα atoms.
+      if (pointI && pointJ) {
+        viewer.addCylinder({
+          start: pointI,
+          end: pointJ,
+          radius: 0.18,
+          fromCap: 'round',
+          toCap: 'round',
+          color: '#f8fafc',
+        });
+      } else {
+        viewer.addLine({
+          start: { resi: `${resiI}`, atom: 'CA' },
+          end: { resi: `${resiJ}`, atom: 'CA' },
+          dashed: true,
+          color: 'white',
+          linewidth: 3,
+        });
+      }
 
-      const d = data.distance[i - 1][j - 1];
-      const label = d === null ? `${resiI}–${resiJ}` : `${d.toFixed(1)} Å`;
-      // Position label near whichever residue is more central
-      const midResi = data.column_pdb_residues[Math.round((i + j) / 2) - 1];
-      viewer.addLabel(label, {
-        position: { resi: `${midResi}`, atom: 'CA' },
-        backgroundColor: 'rgba(30,30,36,0.85)',
-        backgroundOpacity: 0.85,
-        fontColor: 'white',
-        fontSize: 12,
-        borderThickness: 1,
-        borderColor: 'rgba(255,255,255,0.2)',
-      });
+      if (pointI && pointJ) {
+        orientViewerToPair(viewer, pointI, pointJ);
+      }
     }
 
     viewer.render();
@@ -840,6 +1058,11 @@ function StructurePanel({
         className="structure-panel-container"
         style={{ position: 'relative' }}
       />
+      {distanceBadge && (
+        <div className="structure-distance-badge" aria-hidden="true">
+          {distanceBadge}
+        </div>
+      )}
       {vError && <div className="structure-error">3D viewer error: {vError}</div>}
       <style>{`
         .structure-panel-wrap {
@@ -847,6 +1070,7 @@ function StructurePanel({
           border-radius: 4px;
           overflow: hidden;
           background: rgb(24,24,28);
+          position: relative;
         }
         .structure-panel-container {
           width: 100%;
@@ -855,6 +1079,22 @@ function StructurePanel({
              without dominating the vertical viewport. */
           aspect-ratio: 2.4 / 1;
           min-height: 260px;
+        }
+        .structure-distance-badge {
+          position: absolute;
+          top: 0.65rem;
+          right: 0.65rem;
+          padding: 0.25rem 0.45rem;
+          border: 1px solid #4a4a52;
+          border-radius: 4px;
+          background: rgba(30, 30, 36, 0.86);
+          color: #f8fafc;
+          font-family: var(--font-mono);
+          font-size: 0.72rem;
+          font-weight: 600;
+          line-height: 1;
+          pointer-events: none;
+          z-index: 2;
         }
         .structure-error {
           padding: 1rem;
