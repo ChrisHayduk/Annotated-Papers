@@ -16,7 +16,7 @@ description: An annotated walkthrough of AlphaFold2 — Evoformer, Invariant Poi
 readingTimeMinutes: 90
 referenceRepo:
   url: https://github.com/ChrisHayduk/minAlphaFold2
-  commit: 7e3e6d4f4c050391438450e9b7a361490b49f90e
+  commit: f2e6c237fe4b98f2ca94ebdcc5ecc06dc04852c3
 draft: false
 ---
 
@@ -790,7 +790,7 @@ The training recipe is where the ambition of AlphaFold2 becomes most obvious. Th
 
 We saw the input feature builders back in §2: <CodeRef file="minalphafold/data.py" symbol="build_target_feat" />, <CodeRef file="minalphafold/data.py" symbol="build_msa_feat" />, <CodeRef file="minalphafold/data.py" symbol="build_extra_msa_feat" />, and <CodeRef file="minalphafold/data.py" symbol="build_template_pair_feat" />. The training-time additions are the supervision builders, which turn raw `.mmcif` files into all the targets required by the losses in §12:
 
-<Snippet file="minalphafold/data.py" lines="961-990" title="build_processed_example" />
+<Snippet file="minalphafold/data.py" lines="1163-1192" title="build_processed_example" />
 
 This wrapper crops the raw example and delegates to the cropped-example builder. Downstream of that call, the data path extracts atom14 coordinates and masks from the experimental structure, builds ground-truth backbone frames via `rigid_frame_from_three_points`, computes torsion angles from $\phi$/$\psi$/$\omega$/$\chi_{1..4}$, and produces the supervised tensors consumed by the losses. The output is a single processed-example dictionary that flows through the rest of the pipeline.
 
@@ -798,15 +798,17 @@ This wrapper crops the raw example and delegates to the cropped-example builder.
 
 Real proteins can be thousands of residues long. The full Evoformer at paper-spec config, with 48 blocks and triangle multiplication's $O(r^3)$ scaling, becomes extremely expensive as $r$ grows. AlphaFold2's answer is to **train on crops**: random contiguous windows of a fixed length $N_\text{crop}$, usually 256 residues, sampled from each protein.
 
-<Snippet file="minalphafold/data.py" lines="993-1051" title="build_processed_example_from_cropped" />
+<Snippet file="minalphafold/data.py" lines="317-362" title="crop_example" />
 
-The cropping is random contiguous: pick a start index uniformly, take $N_\text{crop}$ consecutive residues, and build features for that crop. This has a nontrivial implication. The model often trains on pieces of proteins but must generalize to full-length proteins at inference. Empirically, the triangle-consistency inductive biases in the Evoformer and the geometry of the Structure Module are strong enough that local structural relationships learned on crops compose reasonably well.
+The mechanics are simple: if the chain is shorter than the crop size, pass it through unchanged. Otherwise, pick one contiguous residue window and slice every residue-indexed field consistently: target sequence, MSA columns, template coordinates, atom14 supervision, and masks. During training, the start index is sampled uniformly by `_crop_start`; at inference, it is centered deterministically.
+
+This has a nontrivial implication. The model often trains on pieces of proteins but must generalize to full-length proteins at inference. Empirically, the triangle-consistency inductive biases in the Evoformer and the geometry of the Structure Module are strong enough that local structural relationships learned on crops compose reasonably well.
 
 ### 13.3 Batch collation
 
 With variable-length crops, since some proteins are shorter than the crop size, we need to pad and mask. `collate_batch` does both:
 
-<Snippet file="minalphafold/data.py" lines="1054-1237" title="collate_batch" />
+<Snippet file="minalphafold/data.py" lines="1242-1425" title="collate_batch" />
 
 Every feature tensor in the batch is padded to the largest example in the batch, and a `seq_mask` tensor is threaded through the attention operations to block out padded positions. Attention scores at padded indices go to $-\infty$ before softmax, and outputs at padded positions are ignored before loss computation. This is why masks appear everywhere in minAlphaFold2.
 
