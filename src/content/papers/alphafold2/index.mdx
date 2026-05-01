@@ -81,15 +81,15 @@ import AF2ArchitectureOverview from '../../../components/mdx/AF2ArchitectureOver
 
 ## 0. Prelims
 
-Before we start, let's orient ourselves to **minAlphaFold2**, the reference codebase this annotation walks through, and to the conventions I will use throughout the piece.
+Throughout this guide, we'll make use of **minAlphaFold2**, which is a simple, easy-to-read re-implementation of AlphaFold2 that I produced. You can access the repo here: https://github.com/ChrisHayduk/minAlphaFold2
 
-The goal of minAlphaFold2 is simple: make AlphaFold2 legible. The full DeepMind implementation is a production-oriented JAX codebase; minAlphaFold2 is a much smaller pure-PyTorch implementation written specifically to be read against the paper. Every design decision in the repo follows from that goal:
+The goal of minAlphaFold2 is to make AlphaFold2 simple and legible. The full DeepMind implementation is a production-oriented JAX codebase with tons of bells and whistles that make it extremely confusing to dig through. On the other hand, minAlphaFold2 is a much smaller pure-PyTorch implementation written specifically to be read against the paper. Every design decision in the repo follows from that North Star:
 
-**Variable names follow the paper.** `m` is the MSA representation, with shape $(s, r, c_m)$, where $s$ is the number of sequences, $r$ is the number of residues, and $c_m$ is the channel dimension. `z` is the pair representation, with shape $(r, r, c_z)$. `s_i` is the single representation in the Structure Module. `T_i` is a rigid frame. If you have the supplement open, you should be able to move from symbol to code without doing a translation step in your head.
+**Variable names follow the paper exactly.** `m` is the MSA representation, with shape $(s, r, c_m)$, where $s$ is the number of sequences, $r$ is the number of residues, and $c_m$ is the channel dimension. `z` is the pair representation, with shape $(r, r, c_z)$. `s_i` is the single representation in the Structure Module. `T_i` is a rigid frame. If you have the AF2 paper and supplement open, you should be able to jump back and forth between the papers and the code with no cognitive tax, 
 
-**Algorithms are annotated inline.** Every major class and function in minAlphaFold2 cites the supplement algorithm it implements. Comments like `# Algorithm 7` appear right above the relevant forward method. When I say "Algorithm 7" below, you can grep for it in the repo and land on the corresponding code. Shapes are asserted throughout the forward pass, and the tests exercise those assertions end-to-end.
+**Algorithms are annotated inline.** Every major class and function in minAlphaFold2 cites the supplement algorithm it implements. Comments like `# Algorithm 7` appear right above the relevant forward method, allowing you to reference the description and pseudocode from the paper while reading the code. When I say "Algorithm 7" below, you can grep for it in the repo to find the corresponding code. Shapes are typically asserted throughout the forward pass, and the tests exercise those assertions end-to-end.
 
-**Three config profiles** live under `configs/`:
+**There are three config profiles** living under `configs/`, intended to provide runnable versions of minAlphaFold2 for a range of compute budgets:
 
 - `tiny.toml` — about 90k parameters, CPU-runnable, good for unit tests and for the overfit walkthrough in §14.
 - `medium.toml` — for overfit experiments on a single GPU.
@@ -99,7 +99,7 @@ The walkthrough below will mostly stay at the level of the architecture, but whe
 
 ## 1. Background
 
-AlphaFold2 was not the first deep-learning approach to protein structure prediction, but it was the first one that really *worked* in the sense that matters: it produced structures accurate enough to replace experimental structure determination for a large fraction of proteins. To understand why it worked, we need to start with the biology rather than with the architecture, because the architecture only makes sense once you understand the particular statistical structure the model is exploiting.
+AlphaFold2 was not the first deep-learning approach to protein structure prediction, but it was groundbreaking because it was the first deep learning system to really *work*. It produced structures that were far more accurate than any other existing computational approaches, approaching the accuracy levels of experimental structure determination for a large fraction of proteins. To understand why it worked, we need to start with the biology rather than with the architecture, because the architecture only makes sense once you understand the particular statistical structure the model is exploiting.
 
 ### 1.1 The folding problem
 
@@ -113,17 +113,25 @@ The primary structure then folds, under thermodynamic constraints, into a specif
   Prize followed in 1972.
 </Sidenote>
 
-The **folding problem** is the problem of going from sequence to structure computationally. It is hard for the reason Cyrus Levinthal pointed out in 1969: a sequence of length 100 has something like $3^{100}$ possible conformations if each residue has three rotational states. You cannot brute-force this search. And yet proteins fold on millisecond timescales inside cells, reliably and reproducibly. The only way this can happen is if the energy landscape is highly biased. Proteins are not sampling uniformly from all possible conformations; they are being funneled, by the physics of their interactions, toward a small set of low-energy structures.
+The **folding problem** is the problem of going from sequence to structure computationally. It is hard for the reason Cyrus Levinthal pointed out in 1969 - a sequence of length 100 has something like $3^{100}$ possible conformations if each residue has three rotational states. The search space is so large that it is impossible to brute force, regardless of any realistically conceivable amount of compute thrown at it. And yet proteins fold on millisecond timescales inside cells, reliably and reproducibly! 
 
-For decades, the field tried to model that funnel directly through molecular dynamics, statistical potentials, fragment libraries, and many other approximations. These methods worked in pieces, but not well enough at proteome scale. AlphaFold2's core move was to stop trying to explicitly simulate the entire physical process and instead learn the shape of the funnel from data.
+The only way this can happen is if the energy landscape is highly biased. Rather than sample uniformly from all possible conformations, proteins are being funneled by the physics of their interactions toward a small set of low-energy structures.
+
+This insight opens the door to modeling the funneling dynamics present in protein folding. For decades, the field tried to model that funnel directly through molecular dynamics, statistical potentials, fragment libraries, and many other approximations. These methods worked in pieces, but not well enough at the proteome scale due to their immense computational cost. Running a full molecular dynamics simulation for large proteins was just computationally intractable.
+
+AlphaFold2's core innovation was to stop trying to explicitly simulate the entire physical process and instead learn the shape of the funnel from data.
 
 ### 1.2 MSAs and evolutionary coupling
 
-The data, it turns out, is not just the target sequence itself. The key insight, which predates AlphaFold2 by decades, is that related proteins from different species tend to share the same fold, and the mutations they accumulate over evolutionary time are not independent. If residues $i$ and $j$ are in contact in 3D, then a mutation at $i$ that disrupts that contact creates selection pressure for a compensating mutation at $j$. Over millions of years and many species, that pressure leaves a statistical signature: the columns for residues $i$ and $j$ in a multiple sequence alignment co-vary.
+The key insight that unlocks protein folding, which predates AlphaFold2 by decades, is that related proteins across species tend to share the same domains, and the mutations they accumulate over evolutionary time are not independent. If amino acids $i$ and $j$ in the protein sequence are in contact in the 3D structure, then a mutation at $i$ that disrupts that contact creates selection pressure for a compensating mutation at $j$. That is, if $j$ doesn't mutate to compensate the mutation at $i$, then the protein wont' successfully fold into the shape needed to achieve its function. Over millions of years and many species, that pressure leaves a statistical signature - the columns for residues $i$ and $j$ in a multiple sequence alignment co-vary.
 
-A multiple sequence alignment, or MSA, is exactly what it sounds like: take the target sequence, find a large set of evolutionarily related sequences, and line them up so that homologous residues sit in the same column.
+A multiple sequence alignment, or MSA, is exactly what it sounds like. We take the target sequence, find a large set of evolutionarily related sequences, and align them so that homologous residues are in the same column.
 
-<Figure caption="A 23-column window from a real cytochrome c MSA, anchored on the CXXCH heme-binding motif (highlighted). Sequences are mature proteins pulled from UniProt — H. sapiens (P99999), E. caballus (P00004), G. gallus (P67881), D. melanogaster Cyt c-2 (P84029), S. cerevisiae iso-1 (P00044) — and span roughly a billion years of divergence. The leading columns are gaps in the vertebrate rows because fly and yeast both carry N-terminal extensions that the vertebrate lineage has lost. The two cysteines and the histidine in CXXCH are invariant across every known cytochrome c — they covalently anchor the heme cofactor — and several other columns (11, 15, 21) are invariant too. That kind of conservation, and the correlated mutations it implies, is what AlphaFold2 will mine for evolutionary coupling.">
+(Terminology note: homologous == "evolutionarily related positions in the amino acid sequences", residue == "a single amino acid in a sequence")
+
+We can see an example of a small MSA below. The rows represent related proteins from various species. Each column is an aligned position in those sequences (e.g. amino acid 1 is in the first column).
+
+<Figure caption="A 23-column window from a real cytochrome c MSA, anchored on the CXXCH heme-binding motif (highlighted). Sequences are mature proteins pulled from the canonical protein database UniProt. The representative species include: H. sapiens (P99999), E. caballus (P00004), G. gallus (P67881), D. melanogaster Cyt c-2 (P84029), S. cerevisiae iso-1 (P00044). They span roughly a billion years of divergence. The leading columns are gaps in the vertebrate rows because fly and yeast both carry N-terminal extensions that the vertebrate lineage has lost. The two cysteines and the histidine in CXXCH are invariant across every known cytochrome c (they covalently anchor the heme cofactor) and several other columns (11, 15, 21) are invariant too. That kind of conservation, and the correlated mutations it implies, is what AlphaFold2 mines for evolutionary coupling.">
   <pre style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.7; padding: 0.95rem 1.1rem; border: 1px solid var(--rule); border-radius: 4px; overflow-x: auto; margin: 0;">
   H. sapiens       <span style="opacity: 0.4">- - - - -</span> G D V E K G K K I F I M K <span style="background: rgba(201, 74, 74, 0.14);">C S Q C H</span>
   E. caballus      <span style="opacity: 0.4">- - - - -</span> G D V E K G K K I F V Q K <span style="background: rgba(201, 74, 74, 0.14);">C A Q C H</span>
@@ -133,9 +141,13 @@ A multiple sequence alignment, or MSA, is exactly what it sounds like: take the 
   </pre>
 </Figure>
 
-From an MSA, you can infer a surprising amount. Column variation tells you which residues are conserved, meaning evolution has decided they matter, and which residues are free to drift. Correlated columns tell you which residues are coupled, which is often the signature of contact in 3D. Phylogenetic structure tells you where the signal is coming from. This is why AlphaFold2 treats the MSA as a first-class input rather than as a side feature.
+From an MSA, you can infer a surprising amount. Column variation tells you which residues are conserved, meaning evolution has decided they matter, and which residues are free to drift. 
 
-That co-evolution-equals-contact claim deserves to be seen rather than asserted. The widget below lays out an MSA of about 2,000 serine proteases (Pfam PF00089, aligned with MAFFT), the standard contact-prediction heatmap (top-L coupled pairs in red vs. top-L real contacts in blue — the same evaluation format DCA papers use), and the real bovine β-trypsin structure (2PTN), all linked together. Click any cell, or pick a preset below, and the corresponding pair lights up in all three panels. Bright red cells are coupling predictions that landed on a true contact; faded red cells are false positives. The signal here is genuine — roughly a quarter of the top-L predictions are real contacts, several multiples of the random baseline. That's what AlphaFold2 inherits as raw material and sharpens with the Evoformer.
+(Another terminology note: in biology speak, "conserved residues" just means amino acids in the same position that don't change across species in the MSA.)
+
+Correlated columns tell you which residues are coupled, which is often the signature of contact in 3D. Phylogenetic structure (that is, the evolutionary tree) tells you what ancestors the signal is coming from. This is why AlphaFold2 treats the MSA as a first-class input rather than as a side feature.
+
+That co-evolution-equals-contact claim deserves to be seen rather than asserted because it forms part of the core for why AlphaFold works and is critical to understanding its architectural choices. The widget below lays out an MSA of about 2,000 serine proteases (Pfam PF00089, aligned with MAFFT), the standard contact-prediction heatmap (top-L coupled pairs in red vs. top-L real contacts in blue — the same evaluation format DCA papers use), and the real bovine β-trypsin structure (2PTN), all linked together. Click any cell, or pick a preset below, and the corresponding pair lights up in all three panels. Bright red cells are coupling predictions that landed on a true contact; faded red cells are false positives. The signal here genuinely useful! Roughly a quarter of the top-L predictions are real contacts, several multiples of the random baseline. That's what AlphaFold2 inherits as raw material and sharpens with the Evoformer.
 
 <CoevolutionViewer client:visible />
 
@@ -147,7 +159,7 @@ AlphaFold2 builds its MSAs by searching four databases with two tools (HHBlits f
 - **BFD** — Big Fantastic Database, billions of sequences assembled from raw metagenomic reads.
 
 <EditorialNote>
-  For our purposes, the MSA pipeline itself is out of scope — minAlphaFold
+  For our purposes, the MSA pipeline & algorithms themselves are out of scope. Instead, minAlphaFold2
   takes a pre-built MSA as input. What matters is the *shape* of what comes
   out: a tensor of one-hot-ish per-residue features for each aligned sequence,
   typically a few hundred to a few thousand sequences deep. Everything we do
@@ -155,9 +167,9 @@ AlphaFold2 builds its MSAs by searching four databases with two tools (HHBlits f
 </EditorialNote>
 
 <EditorialNote>
-  If you'd like to go deeper on MSAs specifically — how AF2 uses row- and
+  If you'd like to go deeper on MSAs specifically (how AF2 uses row- and
   column-wise attention on the MSA representation, and why the outer product
-  mean is the right way to push that information into the pair representation —
+  mean is the right way to push that information into the pair representation)
   I've written a [three-part primer on protein language models](https://chrishayduk.com)
   that covers the MSA pipeline in Part I and the transformer-based replacement
   (ESMFold) in Parts II and III. This annotation will cover all of that

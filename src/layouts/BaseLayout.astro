@@ -7,9 +7,10 @@ interface Props {
   description: string;
   ogImage?: string;
   jsonLd?: Record<string, unknown>;
+  robots?: string;
 }
 
-const { title, description, ogImage, jsonLd } = Astro.props;
+const { title, description, ogImage, jsonLd, robots } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const resolvedOg = ogImage ? new URL(ogImage, Astro.site).toString() : undefined;
 
@@ -32,6 +33,7 @@ const gscToken =
     <meta name="color-scheme" content="light dark" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    {robots && <meta name="robots" content={robots} />}
     <link rel="canonical" href={canonical} />
 
     <meta property="og:title" content={title} />

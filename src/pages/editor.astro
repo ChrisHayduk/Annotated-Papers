@@ -1,0 +1,13 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import AlphaFoldSourceEditor from '../components/editor/AlphaFoldSourceEditor';
+import '../styles/editor.css';
+---
+
+<BaseLayout
+  title="Edit AlphaFold2 | Annotated Papers by Chris Hayduk"
+  description="A local source editor for the AlphaFold2 annotated paper."
+  robots="noindex,nofollow"
+>
+  <AlphaFoldSourceEditor client:only="react" />
+</BaseLayout>
