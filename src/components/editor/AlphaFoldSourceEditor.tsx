@@ -1,5 +1,5 @@
 import katex from 'katex';
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type EditorStatus = 'idle' | 'loading' | 'saving' | 'saved' | 'error';
 
@@ -15,6 +15,9 @@ interface MdxParts {
 
 const EDITOR_API = '/api/editor/alphafold2';
 const PREVIEW_PATH = '/alphafold2/';
+const PREVIEW_RENDER_DELAY_MS = 220;
+const LATEX_CACHE_LIMIT = 300;
+const latexCache = new Map<string, string>();
 
 function escapeHtml(value: string) {
   return value
@@ -25,13 +28,22 @@ function escapeHtml(value: string) {
 }
 
 function renderLatex(latex: string, displayMode: boolean) {
-  return katex.renderToString(latex.trim(), {
+  const source = latex.trim();
+  const cacheKey = `${displayMode ? 'display' : 'inline'}:${source}`;
+  const cached = latexCache.get(cacheKey);
+  if (cached) return cached;
+
+  const rendered = katex.renderToString(source, {
     displayMode,
     output: 'htmlAndMathml',
     strict: 'ignore',
     throwOnError: false,
     trust: false,
   });
+
+  if (latexCache.size >= LATEX_CACHE_LIMIT) latexCache.clear();
+  latexCache.set(cacheKey, rendered);
+  return rendered;
 }
 
 function stripMathFence(source: string) {
@@ -371,6 +383,7 @@ export default function AlphaFoldSourceEditor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLElement>(null);
   const isSyncingScrollRef = useRef(false);
+  const hasRenderedPreviewRef = useRef(false);
   const [sourcePreamble, setSourcePreamble] = useState('');
   const [markdown, setMarkdown] = useState('');
   const [savedMarkdown, setSavedMarkdown] = useState('');
@@ -378,17 +391,11 @@ export default function AlphaFoldSourceEditor() {
   const [status, setStatus] = useState<EditorStatus>('loading');
   const [message, setMessage] = useState('Loading AlphaFold2 MDX source...');
   const [cursor, setCursor] = useState({ line: 1, column: 1 });
-  const deferredMarkdown = useDeferredValue(markdown);
+  const [livePreviewHtml, setLivePreviewHtml] = useState('');
+  const [previewPending, setPreviewPending] = useState(false);
+  const [stats, setStats] = useState({ lines: 0, words: 0 });
 
   const dirty = markdown !== savedMarkdown;
-  const livePreviewHtml = useMemo(() => renderLivePreview(deferredMarkdown), [deferredMarkdown]);
-  const stats = useMemo(
-    () => ({
-      lines: markdown ? markdown.split('\n').length : 0,
-      words: countWords(markdown),
-    }),
-    [markdown],
-  );
 
   function syncScroll(source: HTMLElement, target: HTMLElement | null) {
     if (!target || isSyncingScrollRef.current) return;
@@ -436,6 +443,46 @@ export default function AlphaFoldSourceEditor() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    let idleId: number | undefined;
+    const delay = hasRenderedPreviewRef.current ? PREVIEW_RENDER_DELAY_MS : 0;
+
+    setPreviewPending(Boolean(markdown));
+
+    const timeoutId = window.setTimeout(() => {
+      const render = () => {
+        if (cancelled) return;
+
+        const nextHtml = markdown ? renderLivePreview(markdown) : '';
+        const nextStats = {
+          lines: markdown ? markdown.split('\n').length : 0,
+          words: countWords(markdown),
+        };
+
+        if (cancelled) return;
+        setLivePreviewHtml(nextHtml);
+        setStats(nextStats);
+        setPreviewPending(false);
+        hasRenderedPreviewRef.current = true;
+      };
+
+      if ('requestIdleCallback' in window) {
+        idleId = window.requestIdleCallback(render, { timeout: 500 });
+      } else {
+        render();
+      }
+    }, delay);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      if (idleId !== undefined && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(idleId);
+      }
+    };
+  }, [markdown]);
 
   useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -578,7 +625,7 @@ export default function AlphaFoldSourceEditor() {
         <section className="source-editor-pane source-editor-pane--preview" aria-label="Rendered preview">
           <div className="source-editor-pane-head">
             <span>Live preview</span>
-            <span>synced unsaved draft</span>
+            <span>{previewPending ? 'updating...' : 'synced unsaved draft'}</span>
           </div>
           <article
             ref={previewRef}
