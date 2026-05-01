@@ -9,7 +9,7 @@ interface Props {
 const { src, alt, caption, id, number } = Astro.props;
 ---
 <figure id={id}>
-  {src && <img src={src} alt={alt ?? ''} loading="lazy" />}
+  {src && <img class="figure-image" src={src} alt={alt ?? ''} loading="lazy" />}
   <slot />
   {caption && (
     <figcaption>
@@ -18,3 +18,10 @@ const { src, alt, caption, id, number } = Astro.props;
     </figcaption>
   )}
 </figure>
+
+<style>
+  .figure-image {
+    display: block;
+    margin-inline: auto;
+  }
+</style>

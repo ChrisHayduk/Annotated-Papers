@@ -101,11 +101,43 @@ The walkthrough below will mostly stay at the level of the architecture, but whe
 
 AlphaFold2 was not the first deep-learning approach to protein structure prediction, but it was groundbreaking because it was the first deep learning system to really *work*. It produced structures that were far more accurate than any other existing computational approaches, approaching the accuracy levels of experimental structure determination for a large fraction of proteins. To understand why it worked, we need to start with the biology rather than with the architecture, because the architecture only makes sense once you understand the particular statistical structure the model is exploiting.
 
-### 1.1 The folding problem
+### 1.1 What are proteins
 
-A protein is a chain of amino acids. There are 20 canonical amino acids in human proteins, each a small organic molecule with a shared backbone and a distinct side chain. The cell transcribes DNA into RNA and then translates RNA into a chain of these amino acids. At this level, a protein is just a sequence: a string over a roughly 20-letter alphabet. This is the **primary structure**.
+Let's start with a seemingly simple question - what are proteins and why should we care about them?
 
-The primary structure then folds, under thermodynamic constraints, into a specific three-dimensional shape: the **tertiary structure**. That shape is what the protein *does*. The arrangement of side chains in 3D determines which molecules it binds, which reactions it catalyzes, and which signals it transduces. In other words, function follows structure, and structure follows sequence.
+Proteins are large molecules produced within the cells of living organisms to perform some function. You can think of proteins as the machinery of life. They are responsible for facilitating chemical reactions in the body, providing structural integrity to cells, acting as receptors, and more. Quite simply, life as we know it would not be possible without the vast array of protein-based nanomachines constantly at work in our bodies.
+
+The functions that a protein takes on (e.g., whether it acts as a receptor attached to a cell membrane or as a catalyst for a chemical reaction) come down in large part to its 3D structure. The shape of the protein determines what other molecules it can interact with, thereby determining what it can *do* in the body.
+
+<Figure
+  src="/images/alphafold2/lactase.jpeg"
+  alt="An image of the lactase protein"
+  caption="The lactase protein - this is what breaks down lactose into simpler sugars, allowing you to process dairy!"
+/>
+
+Now, if proteins are so important, it may be natural to ask "where do they come from?" And herein lies the central role of DNA in living organisms.
+
+It is a common cliché to hear that DNA is the system of record for an organism, or the set of instructions for life. But it is less often said exactly *what* instructions DNA is providing. 
+
+As it turns out, DNA is essentially a set of instructions for making proteins! The role of DNA is to tell your cell what proteins to make, when to make them, and in what quantities to make them. In fact, there is a clear mapping between DNA and proteins - if you remember your biology, you'll remember that DNA is made up of base pairs (represented by the letters ACTG in a long string). Chunks of three of these base pairs, referred to as "codons", are translated by the ribosomes in your cells into amino acids. So much of what your body does is converting strings of DNA base pair sequences into strings of amino acid sequences.
+
+<Figure
+  src="/images/alphafold2/dna-rna-protein.png"
+  alt="Converting from DNA to proteins."
+  caption="The process by which information stored in DNA is converted into 3D protein structures."
+/>
+
+<Sidenote>
+Biologists often refer to the amino acid sequence of a protein as its primary structure and to its 3D structure as its tertiary structure.
+</Sidenote>
+
+Hence, from two different views, a protein is simultaneously a one-dimensional string of amino acids and also a three-dimensional, interactive structure. How can we reconcile these two views?
+
+They're connected by what's known as **protein folding**.
+
+### 1.2 The protein folding problem
+
+In other words, function follows structure, and structure follows sequence.
 
 <Sidenote>
   Anfinsen showed this experimentally in 1961 by denaturing ribonuclease A and
@@ -119,17 +151,17 @@ The only way this can happen is if the energy landscape is highly biased. Rather
 
 This insight opens the door to modeling the funneling dynamics present in protein folding. For decades, the field tried to model that funnel directly through molecular dynamics, statistical potentials, fragment libraries, and many other approximations. These methods worked in pieces, but not well enough at the proteome scale due to their immense computational cost. Running a full molecular dynamics simulation for large proteins was just computationally intractable.
 
-AlphaFold2's core innovation was to stop trying to explicitly simulate the entire physical process and instead learn the shape of the funnel from data.
+AlphaFold2's core innovation was to stop trying to explicitly simulate the entire physical process and instead learn the shape of the funnel from data. We'll discuss two of these key data sources in the next two subsections (1.2 and 1.3).
 
-### 1.2 MSAs and evolutionary coupling
+### 1.3 MSAs and evolutionary coupling
 
-The key insight that unlocks protein folding, which predates AlphaFold2 by decades, is that related proteins across species tend to share the same domains, and the mutations they accumulate over evolutionary time are not independent. If amino acids $i$ and $j$ in the protein sequence are in contact in the 3D structure, then a mutation at $i$ that disrupts that contact creates selection pressure for a compensating mutation at $j$. That is, if $j$ doesn't mutate to compensate the mutation at $i$, then the protein wont' successfully fold into the shape needed to achieve its function. Over millions of years and many species, that pressure leaves a statistical signature - the columns for residues $i$ and $j$ in a multiple sequence alignment co-vary.
+The key insight that unlocks protein folding, which predates AlphaFold2 by decades, is that related proteins across species tend to share the same domains, and the mutations they accumulate over evolutionary time are not independent. If amino acids $i$ and $j$ in the protein sequence are in contact in the 3D structure, then a mutation at $i$ that disrupts that contact creates selection pressure for a compensating mutation at $j$. That is, if $j$ doesn't mutate to compensate for the mutation at $i$, then the protein won't successfully fold into the shape needed to achieve its function. Over millions of years and many species, that pressure leaves a statistical signature - the columns for residues $i$ and $j$ in a multiple sequence alignment co-vary.
 
 A multiple sequence alignment, or MSA, is exactly what it sounds like. We take the target sequence, find a large set of evolutionarily related sequences, and align them so that homologous residues are in the same column.
 
 (Terminology note: homologous == "evolutionarily related positions in the amino acid sequences", residue == "a single amino acid in a sequence")
 
-We can see an example of a small MSA below. The rows represent related proteins from various species. Each column is an aligned position in those sequences (e.g. amino acid 1 is in the first column).
+We can see an example of a small MSA below. The rows represent related proteins from various species. Each column is an aligned position in those sequences (e.g., amino acid 1 is in the first column).
 
 <Figure caption="A 23-column window from a real cytochrome c MSA, anchored on the CXXCH heme-binding motif (highlighted). Sequences are mature proteins pulled from the canonical protein database UniProt. The representative species include: H. sapiens (P99999), E. caballus (P00004), G. gallus (P67881), D. melanogaster Cyt c-2 (P84029), S. cerevisiae iso-1 (P00044). They span roughly a billion years of divergence. The leading columns are gaps in the vertebrate rows because fly and yeast both carry N-terminal extensions that the vertebrate lineage has lost. The two cysteines and the histidine in CXXCH are invariant across every known cytochrome c (they covalently anchor the heme cofactor) and several other columns (11, 15, 21) are invariant too. That kind of conservation, and the correlated mutations it implies, is what AlphaFold2 mines for evolutionary coupling.">
   <pre style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.7; padding: 0.95rem 1.1rem; border: 1px solid var(--rule); border-radius: 4px; overflow-x: auto; margin: 0;">
@@ -145,9 +177,9 @@ From an MSA, you can infer a surprising amount. Column variation tells you which
 
 (Another terminology note: in biology speak, "conserved residues" just means amino acids in the same position that don't change across species in the MSA.)
 
-Correlated columns tell you which residues are coupled, which is often the signature of contact in 3D. Phylogenetic structure (that is, the evolutionary tree) tells you what ancestors the signal is coming from. This is why AlphaFold2 treats the MSA as a first-class input rather than as a side feature.
+Correlated columns tell you which residues are coupled, which is often the signature of contact in 3D. This is why AlphaFold2 treats the MSA as a first-class input rather than as a side feature - these coupled residues give the model a strong starting point to "guess" which residues should be next to each other in the 3D structure.
 
-That co-evolution-equals-contact claim deserves to be seen rather than asserted because it forms part of the core for why AlphaFold works and is critical to understanding its architectural choices. The widget below lays out an MSA of about 2,000 serine proteases (Pfam PF00089, aligned with MAFFT), the standard contact-prediction heatmap (top-L coupled pairs in red vs. top-L real contacts in blue — the same evaluation format DCA papers use), and the real bovine β-trypsin structure (2PTN), all linked together. Click any cell, or pick a preset below, and the corresponding pair lights up in all three panels. Bright red cells are coupling predictions that landed on a true contact; faded red cells are false positives. The signal here genuinely useful! Roughly a quarter of the top-L predictions are real contacts, several multiples of the random baseline. That's what AlphaFold2 inherits as raw material and sharpens with the Evoformer.
+The claim that co-evolution equals contact deserves to be seen rather than asserted because it forms part of the core for why AlphaFold works and is critical to understanding its architectural choices. The widget below lays out an MSA of about 2,000 serine proteases (Pfam PF00089, aligned with MAFFT), the standard contact-prediction heatmap (top-L coupled pairs in red vs. top-L real contacts in blue — the same evaluation format DCA papers use), and the real bovine β-trypsin structure (2PTN), all linked together. Click any cell, or pick a preset below, and the corresponding pair lights up in all three panels. Bright red cells are coupling predictions that landed on a true contact; faded red cells are false positives. The signal here genuinely useful! Roughly a quarter of the top-L predictions are real contacts, several multiples of the random baseline. That's what AlphaFold2 inherits as raw material and sharpens with the Evoformer.
 
 <CoevolutionViewer client:visible />
 
@@ -177,15 +209,17 @@ AlphaFold2 builds its MSAs by searching four databases with two tools (HHBlits f
   paper down.
 </EditorialNote>
 
-### 1.3 Templates
+### 1.4 Templates
 
-Templates are the second source of prior knowledge AlphaFold2 uses. If an evolutionarily related protein already has a solved 3D structure in the Protein Data Bank, its coordinates can be used as a hint for the model to "guess" at the coordinates of the target protein. AlphaFold2 finds up to four templates via HHSearch on PDB70, converts them into pair-like embeddings, and injects them into the same broad pipeline as the MSA (i.e., the Evoformer).
+With MSAs, we are looking at sequences that are evolutionarily similar to our target sequence in order to find correlations in individual amino acids. But if we already know the solved 3D structure of one of these similar proteins? If its sequence is very close to our target, shouldn't its structure be close as well?
+
+This is where templates come in, forming the second source of prior knowledge AlphaFold2 uses. If an evolutionarily related protein already has a solved 3D structure in the Protein Data Bank, its coordinates can be used as a hint for the model to "guess" at the coordinates of the target protein. AlphaFold2 finds up to four templates via HHSearch on PDB70, converts them into pair-like embeddings, and injects them into the same broad pipeline as the MSA (i.e., the Evoformer).
 
 Hence, while we can think of MSA as giving us granular information on which pairs. of residues are in contact, we can think of templates as giving us global information about what the entire folded protein might look like.
 
 In practice within AlphaFold2, templates are mostey useful when evolutionary information is sparse (that is, when the MSA search for a protein does not return many hits), but the model does not depend on them in the way older template-based methods did. The MSA and the learned pair representation do most of the work. As such, we will treat templates as an important input-pipeline detail and cover them briefly in §8, rather than making them the center of the story.
 
-### 1.4 Rigid frames and SE(3)
+### 1.5 Rigid frames and SE(3)
 
 The output of AlphaFold2 is a 3D structure, but the most important intermediate object is not just a list of Cartesian coordinates. Instead, each residue has an associated **local frame**: a position $t_i \in \mathbb{R}^3$ and a rotation $R_i \in \mathrm{SO}(3)$ that together specify a small coordinate system attached to the backbone. The whole structure can then be represented as a sequence of these frames, one per residue.
 
@@ -193,7 +227,7 @@ This matters for two reasons. First, frames are the natural object for expressin
 
 For §§1–9, we mostly won't need to touch frames. They will show up properly when we reach the Structure Module. But it is worth keeping in mind, as we watch the Evoformer update an abstract pair representation $z$, that the whole upstream model is preparing the information the Structure Module will need in order to place atoms in space.
 
-### 1.5 What AlphaFold2 changed
+### 1.6 What AlphaFold2 changed
 
 Before diving into the implementation, it is useful to be explicit about what was actually new. The rough outline of a contact-prediction-plus-folding pipeline had existed for years: run an MSA, extract co-evolution signals, predict a residue-residue contact map, then fold the protein through fragment assembly or distance-based minimization. AlphaFold1 was already doing something in this family. AlphaFold2 changed the game by adding the following:
 
