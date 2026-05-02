@@ -137,7 +137,9 @@ They're connected by what's known as **protein folding**.
 
 ### 1.2 The protein folding problem
 
-In other words, function follows structure, and structure follows sequence.
+Protein folding is the process by which the one-dimensional amino acid sequence output by the ribosomes folds into its ultimate 3D shape. As we discussed earlier, this shape determines the functions that the protein can fulfill in the body. Thus, function follows structure, and structure follows sequence.
+
+In practice, determining a protein's amino acid sequence is much easier, faster, and cheaper than determining its 3D structure, so it would be nice to be able to predict the structure from the sequence. Unfortunately, this task was historically nearly impossible.
 
 <Sidenote>
   Anfinsen showed this experimentally in 1961 by denaturing ribonuclease A and
@@ -145,7 +147,7 @@ In other words, function follows structure, and structure follows sequence.
   Prize followed in 1972.
 </Sidenote>
 
-The **folding problem** is the problem of going from sequence to structure computationally. It is hard for the reason Cyrus Levinthal pointed out in 1969 - a sequence of length 100 has something like $3^{100}$ possible conformations if each residue has three rotational states. The search space is so large that it is impossible to brute force, regardless of any realistically conceivable amount of compute thrown at it. And yet proteins fold on millisecond timescales inside cells, reliably and reproducibly! 
+The **protein folding problem** is hard for the reason Cyrus Levinthal pointed out in 1969 - a sequence of length 100 has something like $3^{100}$ possible conformations if each residue has three rotational states. The search space is so large that it is impossible to brute force, regardless of any realistically conceivable amount of compute thrown at it. And yet proteins fold on millisecond timescales inside cells, reliably and reproducibly! 
 
 The only way this can happen is if the energy landscape is highly biased. Rather than sample uniformly from all possible conformations, proteins are being funneled by the physics of their interactions toward a small set of low-energy structures.
 
