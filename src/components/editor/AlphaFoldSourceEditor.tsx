@@ -15,7 +15,7 @@ interface MdxParts {
 
 const EDITOR_API = '/api/editor/alphafold2';
 const PREVIEW_PATH = '/alphafold2/';
-const PREVIEW_RENDER_DELAY_MS = 220;
+const PREVIEW_RENDER_DELAY_MS = 300;
 const LATEX_CACHE_LIMIT = 300;
 const latexCache = new Map<string, string>();
 
@@ -371,31 +371,120 @@ function renderLivePreview(markdown: string) {
 function lineAndColumn(textarea: HTMLTextAreaElement | null) {
   if (!textarea) return { line: 1, column: 1 };
 
-  const beforeCursor = textarea.value.slice(0, textarea.selectionStart);
-  const lines = beforeCursor.split('\n');
+  const cursor = textarea.selectionStart;
+  let line = 1;
+  let column = 1;
+  for (let index = 0; index < cursor; index += 1) {
+    if (textarea.value.charCodeAt(index) === 10) {
+      line += 1;
+      column = 1;
+    } else {
+      column += 1;
+    }
+  }
+
   return {
-    line: lines.length,
-    column: (lines.at(-1)?.length ?? 0) + 1,
+    line,
+    column,
   };
 }
 
 export default function AlphaFoldSourceEditor() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const previewRef = useRef<HTMLElement>(null);
+  const sourceMetaRef = useRef<HTMLSpanElement>(null);
   const isSyncingScrollRef = useRef(false);
   const hasRenderedPreviewRef = useRef(false);
+  const markdownRef = useRef('');
+  const savedMarkdownRef = useRef('');
+  const dirtyRef = useRef(false);
+  const previewPendingRef = useRef(false);
+  const statsRef = useRef({ lines: 0, words: 0 });
+  const previewTimerRef = useRef<number | undefined>(undefined);
+  const previewIdleRef = useRef<number | undefined>(undefined);
+  const cursorFrameRef = useRef<number | undefined>(undefined);
   const [sourcePreamble, setSourcePreamble] = useState('');
-  const [markdown, setMarkdown] = useState('');
-  const [savedMarkdown, setSavedMarkdown] = useState('');
   const [sourcePath, setSourcePath] = useState('');
   const [status, setStatus] = useState<EditorStatus>('loading');
   const [message, setMessage] = useState('Loading AlphaFold2 MDX source...');
-  const [cursor, setCursor] = useState({ line: 1, column: 1 });
   const [livePreviewHtml, setLivePreviewHtml] = useState('');
   const [previewPending, setPreviewPending] = useState(false);
-  const [stats, setStats] = useState({ lines: 0, words: 0 });
+  const [dirty, setDirty] = useState(false);
 
-  const dirty = markdown !== savedMarkdown;
+  function setDirtyState(nextDirty: boolean) {
+    if (dirtyRef.current === nextDirty) return;
+    dirtyRef.current = nextDirty;
+    setDirty(nextDirty);
+  }
+
+  function setPreviewPendingState(nextPending: boolean) {
+    if (previewPendingRef.current === nextPending) return;
+    previewPendingRef.current = nextPending;
+    setPreviewPending(nextPending);
+  }
+
+  function updateSourceMeta(textarea = textareaRef.current) {
+    if (!sourceMetaRef.current) return;
+
+    const cursor = lineAndColumn(textarea);
+    sourceMetaRef.current.textContent = `Ln ${cursor.line}, Col ${cursor.column} · ${statsRef.current.lines} lines · ${statsRef.current.words} words`;
+  }
+
+  function scheduleCursorUpdate(textarea = textareaRef.current) {
+    if (cursorFrameRef.current !== undefined) return;
+
+    cursorFrameRef.current = window.requestAnimationFrame(() => {
+      cursorFrameRef.current = undefined;
+      updateSourceMeta(textarea);
+    });
+  }
+
+  function setEditorBody(nextMarkdown: string) {
+    markdownRef.current = nextMarkdown;
+    savedMarkdownRef.current = nextMarkdown;
+    if (textareaRef.current) textareaRef.current.value = nextMarkdown;
+    setDirtyState(false);
+  }
+
+  function schedulePreviewRender(options: { immediate?: boolean } = {}) {
+    if (previewTimerRef.current !== undefined) {
+      window.clearTimeout(previewTimerRef.current);
+      previewTimerRef.current = undefined;
+    }
+    if (previewIdleRef.current !== undefined && 'cancelIdleCallback' in window) {
+      window.cancelIdleCallback(previewIdleRef.current);
+      previewIdleRef.current = undefined;
+    }
+
+    setPreviewPendingState(Boolean(markdownRef.current));
+    const delay = options.immediate || !hasRenderedPreviewRef.current ? 0 : PREVIEW_RENDER_DELAY_MS;
+
+    previewTimerRef.current = window.setTimeout(() => {
+      previewTimerRef.current = undefined;
+
+      const render = () => {
+        previewIdleRef.current = undefined;
+        const markdown = markdownRef.current;
+        const nextStats = {
+          lines: markdown ? markdown.split('\n').length : 0,
+          words: countWords(markdown),
+        };
+
+        statsRef.current = nextStats;
+        setLivePreviewHtml(markdown ? renderLivePreview(markdown) : '');
+        setDirtyState(markdown !== savedMarkdownRef.current);
+        setPreviewPendingState(false);
+        hasRenderedPreviewRef.current = true;
+        updateSourceMeta();
+      };
+
+      if ('requestIdleCallback' in window) {
+        previewIdleRef.current = window.requestIdleCallback(render, { timeout: 700 });
+      } else {
+        render();
+      }
+    }, delay);
+  }
 
   function syncScroll(source: HTMLElement, target: HTMLElement | null) {
     if (!target || isSyncingScrollRef.current) return;
@@ -425,11 +514,11 @@ export default function AlphaFoldSourceEditor() {
 
         const parts = splitMdxSource(payload.markdown);
         setSourcePreamble(parts.preamble);
-        setMarkdown(parts.body);
-        setSavedMarkdown(parts.body);
+        setEditorBody(parts.body);
         setSourcePath(payload.path);
         setStatus('idle');
         setMessage('Loaded article body from disk.');
+        schedulePreviewRender({ immediate: true });
       } catch (error) {
         if (cancelled) return;
         setStatus('error');
@@ -445,46 +534,6 @@ export default function AlphaFoldSourceEditor() {
   }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    let idleId: number | undefined;
-    const delay = hasRenderedPreviewRef.current ? PREVIEW_RENDER_DELAY_MS : 0;
-
-    setPreviewPending(Boolean(markdown));
-
-    const timeoutId = window.setTimeout(() => {
-      const render = () => {
-        if (cancelled) return;
-
-        const nextHtml = markdown ? renderLivePreview(markdown) : '';
-        const nextStats = {
-          lines: markdown ? markdown.split('\n').length : 0,
-          words: countWords(markdown),
-        };
-
-        if (cancelled) return;
-        setLivePreviewHtml(nextHtml);
-        setStats(nextStats);
-        setPreviewPending(false);
-        hasRenderedPreviewRef.current = true;
-      };
-
-      if ('requestIdleCallback' in window) {
-        idleId = window.requestIdleCallback(render, { timeout: 500 });
-      } else {
-        render();
-      }
-    }, delay);
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-      if (idleId !== undefined && 'cancelIdleCallback' in window) {
-        window.cancelIdleCallback(idleId);
-      }
-    };
-  }, [markdown]);
-
-  useEffect(() => {
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       if (!dirty) return;
       event.preventDefault();
@@ -493,6 +542,16 @@ export default function AlphaFoldSourceEditor() {
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => window.removeEventListener('beforeunload', onBeforeUnload);
   }, [dirty]);
+
+  useEffect(() => {
+    return () => {
+      if (previewTimerRef.current !== undefined) window.clearTimeout(previewTimerRef.current);
+      if (previewIdleRef.current !== undefined && 'cancelIdleCallback' in window) {
+        window.cancelIdleCallback(previewIdleRef.current);
+      }
+      if (cursorFrameRef.current !== undefined) window.cancelAnimationFrame(cursorFrameRef.current);
+    };
+  }, []);
 
   async function reloadFromDisk() {
     if (dirty && !window.confirm('Discard unsaved editor changes and reload from disk?')) return;
@@ -506,11 +565,11 @@ export default function AlphaFoldSourceEditor() {
       const payload = (await response.json()) as LoadResponse;
       const parts = splitMdxSource(payload.markdown);
       setSourcePreamble(parts.preamble);
-      setMarkdown(parts.body);
-      setSavedMarkdown(parts.body);
+      setEditorBody(parts.body);
       setSourcePath(payload.path);
       setStatus('idle');
       setMessage('Reloaded article body from disk.');
+      schedulePreviewRender({ immediate: true });
     } catch (error) {
       setStatus('error');
       setMessage(error instanceof Error ? error.message : 'Could not reload source.');
@@ -524,7 +583,7 @@ export default function AlphaFoldSourceEditor() {
       const response = await fetch(EDITOR_API, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ markdown: joinMdxSource(sourcePreamble, markdown) }),
+        body: JSON.stringify({ markdown: joinMdxSource(sourcePreamble, markdownRef.current) }),
       });
 
       if (!response.ok) {
@@ -532,7 +591,8 @@ export default function AlphaFoldSourceEditor() {
         throw new Error(text || `Could not save source (${response.status}).`);
       }
 
-      setSavedMarkdown(markdown);
+      savedMarkdownRef.current = markdownRef.current;
+      setDirtyState(false);
       setStatus('saved');
       setMessage('Saved to disk.');
 
@@ -558,13 +618,17 @@ export default function AlphaFoldSourceEditor() {
     const textarea = event.currentTarget;
     const start = textarea.selectionStart;
     const end = textarea.selectionEnd;
-    const next = `${markdown.slice(0, start)}  ${markdown.slice(end)}`;
-    setMarkdown(next);
+    const next = `${textarea.value.slice(0, start)}  ${textarea.value.slice(end)}`;
+    textarea.value = next;
+    markdownRef.current = next;
+    setDirtyState(true);
+    if (status === 'saved') setStatus('idle');
+    schedulePreviewRender();
 
     window.requestAnimationFrame(() => {
       textarea.selectionStart = start + 2;
       textarea.selectionEnd = start + 2;
-      setCursor(lineAndColumn(textarea));
+      updateSourceMeta(textarea);
     });
   }
 
@@ -601,22 +665,21 @@ export default function AlphaFoldSourceEditor() {
         <section className="source-editor-pane source-editor-pane--source" aria-label="MDX source editor">
           <div className="source-editor-pane-head">
             <span>Source</span>
-            <span>
-              Ln {cursor.line}, Col {cursor.column} · {stats.lines} lines · {stats.words} words
-            </span>
+            <span ref={sourceMetaRef}>Ln 1, Col 1 · 0 lines · 0 words</span>
           </div>
           <textarea
             ref={textareaRef}
-            value={markdown}
             spellCheck={false}
             onChange={(event) => {
-              setMarkdown(event.target.value);
-              setCursor(lineAndColumn(event.target));
+              markdownRef.current = event.target.value;
+              setDirtyState(true);
+              scheduleCursorUpdate(event.target);
+              schedulePreviewRender();
               if (status === 'saved') setStatus('idle');
             }}
-            onClick={(event) => setCursor(lineAndColumn(event.currentTarget))}
+            onClick={(event) => scheduleCursorUpdate(event.currentTarget)}
             onKeyDown={handleKeyDown}
-            onKeyUp={(event) => setCursor(lineAndColumn(event.currentTarget))}
+            onKeyUp={(event) => scheduleCursorUpdate(event.currentTarget)}
             onScroll={(event) => syncScroll(event.currentTarget, previewRef.current)}
             aria-label="AlphaFold2 MDX source"
           />
