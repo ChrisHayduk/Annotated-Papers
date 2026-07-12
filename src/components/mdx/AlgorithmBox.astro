@@ -5,12 +5,102 @@ interface Props {
   id?: string;
 }
 const { number, name, id } = Astro.props;
+const algorithmLabel = `Algorithm ${number}: ${name}`;
 ---
+
 <figure class="algorithm-box" id={id}>
-  <header>Algorithm {number} — {name}</header>
-  <pre><slot /></pre>
+  <figcaption>
+    <span class="algorithm-index">Algorithm {number}</span>
+    <strong>{name}</strong>
+  </figcaption>
+  <div
+    class="algorithm-scroll"
+    tabindex="0"
+    role="region"
+    aria-label={`${algorithmLabel}; scroll horizontally if needed`}
+  ><pre><slot /></pre></div>
 </figure>
 
 <style>
-  .algorithm-box pre { margin: 0; background: transparent; border: none; padding: 0; white-space: pre; }
+  .algorithm-box {
+    margin: 1.75rem 0;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklab, var(--data-msa, var(--accent)) 25%, var(--rule));
+    border-radius: 0.8rem;
+    background: var(--surface, color-mix(in oklab, var(--bg) 96%, var(--fg) 4%));
+    box-shadow: 0 0.8rem 2.4rem color-mix(in oklab, var(--fg) 5%, transparent);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.58;
+  }
+
+  .algorithm-box figcaption {
+    display: flex;
+    align-items: baseline;
+    gap: 0.65rem;
+    margin: 0;
+    padding: 0.78rem 1rem;
+    border-bottom: 1px solid var(--rule);
+    background:
+      linear-gradient(100deg, color-mix(in oklab, var(--data-msa, var(--accent)) 10%, transparent), transparent 58%),
+      var(--surface-strong, color-mix(in oklab, var(--bg) 91%, var(--fg) 9%));
+    font-family: var(--font-sans);
+    text-align: left;
+  }
+
+  .algorithm-index {
+    flex: 0 0 auto;
+    color: var(--data-msa, var(--accent));
+    font-size: 0.65rem;
+    font-weight: 780;
+    letter-spacing: 0.1em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .algorithm-box figcaption strong {
+    color: var(--fg);
+    font-size: 0.88rem;
+    font-weight: 680;
+    line-height: 1.3;
+  }
+
+  .algorithm-scroll {
+    max-width: 100%;
+    padding: 1rem 1.1rem 1.15rem;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .algorithm-scroll:focus-visible {
+    outline: 2px solid var(--data-msa, var(--accent));
+    outline-offset: -3px;
+  }
+
+  .algorithm-box pre {
+    min-width: max-content;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: none;
+    background: transparent;
+    color: var(--fg);
+    font-size: inherit;
+    line-height: inherit;
+    white-space: pre;
+  }
+
+  @media (max-width: 640px) {
+    .algorithm-box figcaption {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0.4rem;
+      padding: 0.75rem 0.85rem;
+    }
+
+    .algorithm-scroll { padding: 0.9rem; }
+  }
 </style>

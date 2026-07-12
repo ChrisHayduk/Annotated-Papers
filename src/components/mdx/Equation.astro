@@ -4,9 +4,16 @@ interface Props {
   number?: number | string;
 }
 const { id, number } = Astro.props;
+const equationLabel = number !== undefined ? `Equation ${number}` : 'Display equation';
 ---
-<div class="equation" id={id}>
-  <div class="equation-body"><slot /></div>
+
+<div class="equation" id={id} role="group" aria-label={equationLabel}>
+  <div
+    class="equation-body"
+    tabindex="0"
+    role="region"
+    aria-label={`${equationLabel} expression; scroll horizontally if needed`}
+  ><slot /></div>
   {number !== undefined && <div class="equation-number">({number})</div>}
 </div>
 
@@ -16,9 +23,60 @@ const { id, number } = Astro.props;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
-    gap: 0.5rem;
-    margin: 1.25rem 0;
+    max-width: 100%;
+    gap: 0.75rem;
+    margin: 1.65rem 0;
+    padding: 0.9rem 1rem;
+    box-sizing: border-box;
+    overflow: hidden;
+    border-block: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 18%, var(--rule));
+    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--data-structure, var(--accent)) 5%, transparent) 50%, transparent);
   }
-  .equation-body { overflow-x: auto; }
-  .equation-number { font-family: var(--font-mono); font-size: 0.85rem; color: var(--fg-muted); }
+
+  .equation-body {
+    min-width: 0;
+    max-width: 100%;
+    padding: 0.25rem 0.1rem;
+    overflow-x: auto;
+    overflow-y: hidden;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .equation-body:focus-visible {
+    border-radius: 0.25rem;
+    outline: 2px solid var(--data-structure, var(--accent));
+    outline-offset: 2px;
+  }
+
+  .equation-number {
+    padding: 0.2rem 0.4rem;
+    border: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 20%, var(--rule));
+    border-radius: 999px;
+    background: var(--surface, var(--bg));
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+
+  :global(.equation-body .katex-display) {
+    min-width: max-content;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+  }
+
+  @media (max-width: 560px) {
+    .equation {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.35rem;
+      margin-inline: -0.15rem;
+      padding-inline: 0.65rem;
+    }
+
+    .equation-number { justify-self: end; }
+  }
 </style>

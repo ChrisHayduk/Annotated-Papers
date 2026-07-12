@@ -4,8 +4,60 @@ interface Props {
   id?: string;
 }
 const { number, id } = Astro.props;
+const label = number !== undefined ? `Margin note ${number}` : 'Margin note';
 ---
-<aside class="sidenote" id={id}>
-  {number !== undefined && <sup>{number}</sup>}
-  <slot />
+
+<aside class="sidenote" id={id} aria-label={label}>
+  <div class="sidenote-label">
+    <span>Margin note</span>
+    {number !== undefined && <sup>{number}</sup>}
+  </div>
+  <div class="sidenote-body"><slot /></div>
 </aside>
+
+<style>
+  .sidenote {
+    display: block;
+    box-sizing: border-box;
+    margin: 1rem 0;
+    padding: 0.85rem 0.95rem;
+    border: 1px solid color-mix(in oklab, var(--data-msa, var(--accent)) 18%, var(--rule));
+    border-left: 0.2rem solid var(--data-msa, var(--accent));
+    border-radius: 0.25rem 0.65rem 0.65rem 0.25rem;
+    background: color-mix(in oklab, var(--data-msa, var(--accent)) 5%, var(--surface, var(--bg)));
+    color: var(--fg-muted);
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    line-height: 1.55;
+  }
+
+  .sidenote-label {
+    display: flex;
+    align-items: center;
+    gap: 0.42rem;
+    margin-bottom: 0.45rem;
+    color: var(--data-msa, var(--accent));
+    font-size: 0.62rem;
+    font-weight: 780;
+    letter-spacing: 0.11em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .sidenote-label sup {
+    display: inline-grid;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    box-sizing: border-box;
+    place-items: center;
+    padding: 0 0.24rem;
+    border: 1px solid color-mix(in oklab, var(--data-msa, var(--accent)) 35%, var(--rule));
+    border-radius: 999px;
+    font-size: 0.58rem;
+    letter-spacing: 0;
+  }
+
+  :global(.sidenote-body > :first-child) { margin-top: 0; }
+  :global(.sidenote-body > :last-child) { margin-bottom: 0; }
+
+</style>

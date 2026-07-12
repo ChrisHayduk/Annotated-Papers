@@ -1,35 +1,481 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+
+const aboutJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'AboutPage',
+  name: 'About Annotated Papers',
+  url: new URL('/about', Astro.site).toString(),
+  description: 'The editorial method behind Annotated Papers by Chris Hayduk.',
+  author: {
+    '@type': 'Person',
+    name: 'Chris Hayduk',
+    url: 'https://chrishayduk.com',
+  },
+  inLanguage: 'en',
+};
 ---
 <BaseLayout
   title="About — Annotated Papers by Chris Hayduk"
-  description="What this site is and how to read it."
+  description="The editorial method behind Annotated Papers: faithful research walkthroughs built from paper, code, and interactive explanation."
+  jsonLd={aboutJsonLd}
 >
-  <article class="prose">
-    <h1>About</h1>
-    <p>
-      This site hosts line-by-line annotations of research papers I've found
-      worth understanding deeply. Each post interleaves the paper's prose, the
-      relevant math, and a faithful minimal reimplementation of the algorithm —
-      in the tradition of
-      <a href="https://nlp.seas.harvard.edu/annotated-transformer/">The Annotated Transformer</a>.
-    </p>
-    <p>
-      The code blocks aren't just pseudocode — they come from real, runnable
-      reimplementations I've written specifically for pedagogical clarity.
-      Variable names match the paper's notation, comments cite the supplement's
-      algorithm numbers inline, and the whole thing has unit and integration
-      tests. For <a href="/alphafold2">the AlphaFold2 annotation</a>, that code
-      lives in <a href="https://github.com/ChrisHayduk/minAlphaFold2">minAlphaFold2</a>
-      — ~8,000 lines of PyTorch, ~95% of the paper implemented.
-    </p>
-    <p>
-      Each post pins the referenced repo to a specific commit, so the code you
-      read here is the exact code the site builds against. You can clone the
-      repo, follow along, and re-run every example locally.
-    </p>
-    <p>
-      — <a href="https://chrishayduk.com">Chris Hayduk</a>
-    </p>
+  <article class="about-page">
+    <header class="about-hero">
+      <div class="about-heading">
+        <p class="eyebrow"><span>About the project</span> A note from the editor</p>
+        <h1>Research papers,<br /><em>rebuilt for understanding.</em></h1>
+      </div>
+      <div class="about-intro">
+        <p>
+          Papers are compact by design. Their job is to establish a result, not to
+          make every dependency, implementation choice, or geometric intuition easy to see.
+        </p>
+        <p>
+          Annotated Papers slows that compression down. Each dossier keeps the paper's
+          argument, its mathematics, and a faithful runnable implementation in the same field of view.
+        </p>
+      </div>
+    </header>
+
+    <section class="manifesto" aria-labelledby="manifesto-title">
+      <div class="manifesto-index" aria-hidden="true">
+        <span>No.</span>
+        <strong>01</strong>
+        <i></i>
+      </div>
+      <div class="manifesto-copy">
+        <p class="section-label">The premise</p>
+        <h2 id="manifesto-title">
+          A paper becomes legible when you can move freely between
+          <em>what it claims</em>, <em>what the code does</em>, and
+          <em>what the system is actually seeing.</em>
+        </h2>
+        <p>
+          That is the model for every annotation here: not a summary beside a paper,
+          but a guided reading built through the paper itself — in the tradition of
+          <a href="https://nlp.seas.harvard.edu/annotated-transformer/">The Annotated Transformer</a>.
+        </p>
+      </div>
+    </section>
+
+    <section class="method" aria-labelledby="method-title">
+      <div class="method-heading">
+        <p class="section-label">The working method</p>
+        <h2 id="method-title">Fidelity before simplification.</h2>
+        <p>Three commitments keep the explanation attached to the research.</p>
+      </div>
+      <ol class="method-steps">
+        <li>
+          <span class="step-index">01 / Paper</span>
+          <h3>Follow the source</h3>
+          <p>
+            The prose, math, and architecture are unpacked step by step. Explanations preserve
+            the paper's notation so moving between source and annotation carries as little friction as possible.
+          </p>
+        </li>
+        <li>
+          <span class="step-index">02 / Code</span>
+          <h3>Make it executable</h3>
+          <p>
+            Code excerpts come from real reimplementations written for pedagogical clarity — not pseudocode.
+            Algorithms are cited inline, shapes are asserted, and the implementation is tested end to end.
+          </p>
+        </li>
+        <li>
+          <span class="step-index">03 / Interactive</span>
+          <h3>Build intuition</h3>
+          <p>
+            Interactive figures isolate the mechanism under discussion. They let you manipulate the same
+            attention, geometry, and optimization ideas that the notation describes.
+          </p>
+        </li>
+      </ol>
+    </section>
+
+    <section class="case-study" aria-labelledby="case-title">
+      <div class="case-figure" aria-hidden="true">
+        <span class="case-af">AF</span>
+        <span class="case-two">02</span>
+        <div class="case-grid">
+          {Array.from({ length: 49 }, (_, i) => <i class:list={{ active: [3, 9, 10, 16, 23, 30, 31, 38, 45].includes(i) }}></i>)}
+        </div>
+      </div>
+      <div class="case-copy">
+        <p class="section-label">The first dossier</p>
+        <h2 id="case-title">AlphaFold2, from paper to working system.</h2>
+        <p>
+          <a href="/alphafold2">The Annotated AlphaFold2</a> is paired with
+          <a href="https://github.com/ChrisHayduk/minAlphaFold2" target="_blank" rel="noopener">minAlphaFold2</a>:
+          roughly 8,000 lines of paper-aligned PyTorch implementing about 95% of the model.
+          Every post pins its reference repository to a specific commit, so the code on the page is the code the annotation builds against.
+        </p>
+        <div class="case-actions">
+          <a class="primary-link" href="/alphafold2">Read the annotation <span aria-hidden="true">→</span></a>
+          <a class="secondary-link" href="https://github.com/ChrisHayduk/minAlphaFold2" target="_blank" rel="noopener">View the repository <span aria-hidden="true">↗</span></a>
+        </div>
+      </div>
+    </section>
+
+    <footer class="signature">
+      <p>
+        Written and built by <a href="https://chrishayduk.com" rel="me">Chris Hayduk</a>,
+        with the hope that more people can enter important technical fields through understanding rather than intimidation.
+      </p>
+      <span aria-hidden="true">CH / 2026</span>
+    </footer>
   </article>
 </BaseLayout>
+
+<style>
+  .about-page {
+    --page-canvas: var(--canvas, var(--bg));
+    --page-paper: var(--paper, var(--surface, var(--bg)));
+    --page-surface: var(--surface, color-mix(in srgb, var(--bg) 92%, var(--fg)));
+    --msa: var(--data-msa, #2c7a78);
+    --structure: var(--data-structure, #c45b3c);
+    width: min(100% - 3rem, 76rem);
+    margin-inline: auto;
+    color: var(--fg);
+  }
+
+  .about-hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.25fr) minmax(20rem, 0.75fr);
+    align-items: end;
+    gap: clamp(3rem, 8vw, 8rem);
+    min-height: 36rem;
+    padding-block: clamp(5rem, 11vw, 9rem);
+  }
+
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0 0 1.5rem;
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+
+  .eyebrow::before {
+    width: 2.5rem;
+    height: 1px;
+    background: currentColor;
+    content: '';
+  }
+
+  .eyebrow span { color: var(--accent); }
+
+  .about-hero h1 {
+    max-width: 11ch;
+    margin: 0;
+    font-size: clamp(3.6rem, 7.25vw, 7rem);
+    font-weight: 400;
+    letter-spacing: -0.055em;
+    line-height: 0.9;
+  }
+
+  .about-hero h1 em {
+    color: var(--accent);
+    font-weight: 400;
+  }
+
+  .about-intro {
+    padding-top: 1.4rem;
+    border-top: 1px solid var(--fg);
+  }
+
+  .about-intro p {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: 1.05rem;
+    line-height: 1.7;
+  }
+
+  .about-intro p + p { margin-top: 1.25rem; }
+
+  .manifesto {
+    display: grid;
+    grid-template-columns: minmax(9rem, 0.28fr) 1fr;
+    gap: clamp(2rem, 6vw, 6rem);
+    padding: clamp(3rem, 7vw, 6rem);
+    border: 1px solid var(--rule);
+    background:
+      radial-gradient(circle at 8% 82%, color-mix(in srgb, var(--msa) 10%, transparent), transparent 22rem),
+      var(--page-paper);
+    box-shadow: 1rem 1rem 0 color-mix(in srgb, var(--accent) 7%, transparent);
+  }
+
+  .manifesto-index {
+    display: grid;
+    grid-template-rows: auto auto 1fr;
+    color: var(--accent);
+    font-family: var(--font-sans);
+  }
+
+  .manifesto-index span {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+  }
+
+  .manifesto-index strong {
+    font-size: clamp(4.2rem, 8vw, 7rem);
+    letter-spacing: -0.08em;
+    line-height: 0.95;
+  }
+
+  .manifesto-index i {
+    width: 1px;
+    min-height: 4rem;
+    margin: 1.5rem 0 0 0.5rem;
+    background: var(--rule);
+  }
+
+  .section-label {
+    margin: 0 0 1.25rem;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 650;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+  }
+
+  .manifesto-copy h2 {
+    max-width: 20ch;
+    margin: 0;
+    font-size: clamp(2rem, 4vw, 3.75rem);
+    font-weight: 400;
+    letter-spacing: -0.035em;
+    line-height: 1.09;
+  }
+
+  .manifesto-copy h2 em { color: var(--accent); font-weight: 400; }
+
+  .manifesto-copy > p:last-child {
+    max-width: 50rem;
+    margin: 2rem 0 0;
+    color: var(--fg-muted);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .manifesto-copy a,
+  .case-copy p a,
+  .signature a {
+    color: var(--fg);
+    text-decoration-color: var(--accent);
+  }
+
+  .method {
+    display: grid;
+    grid-template-columns: 0.68fr 1.32fr;
+    gap: clamp(3rem, 8vw, 8rem);
+    padding-block: clamp(6rem, 11vw, 10rem);
+  }
+
+  .method-heading h2 {
+    max-width: 9ch;
+    margin: 0;
+    font-size: clamp(2.6rem, 5vw, 4.5rem);
+    font-weight: 400;
+    letter-spacing: -0.045em;
+    line-height: 0.98;
+  }
+
+  .method-heading > p:last-child {
+    max-width: 23rem;
+    margin: 1.5rem 0 0;
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .method-steps {
+    margin: 0;
+    padding: 0;
+    border-top: 1px solid var(--fg);
+    list-style: none;
+  }
+
+  .method-steps li {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 0.42fr) 1fr;
+    column-gap: 2rem;
+    padding: 2.25rem 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .step-index {
+    grid-row: span 2;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 650;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .method-steps h3 {
+    margin: 0 0 0.65rem;
+    font-size: 1.6rem;
+    font-weight: 500;
+  }
+
+  .method-steps p {
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+    line-height: 1.65;
+  }
+
+  .case-study {
+    display: grid;
+    grid-template-columns: 0.78fr 1.22fr;
+    min-height: 32rem;
+    border: 1px solid var(--rule);
+    background: var(--page-paper);
+  }
+
+  .case-figure {
+    position: relative;
+    display: grid;
+    place-content: center;
+    overflow: hidden;
+    border-right: 1px solid var(--rule);
+    background:
+      linear-gradient(color-mix(in srgb, var(--rule) 45%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in srgb, var(--rule) 45%, transparent) 1px, transparent 1px),
+      var(--page-surface);
+    background-size: 2rem 2rem;
+  }
+
+  .case-af,
+  .case-two {
+    position: relative;
+    z-index: 2;
+    font-family: var(--font-sans);
+    font-size: clamp(4.6rem, 10vw, 8.5rem);
+    font-weight: 750;
+    letter-spacing: -0.08em;
+    line-height: 0.72;
+  }
+
+  .case-two { color: var(--accent); text-align: right; }
+
+  .case-grid {
+    position: absolute;
+    inset: 1.5rem;
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    opacity: 0.62;
+  }
+
+  .case-grid i {
+    border-right: 1px solid color-mix(in srgb, var(--rule) 80%, transparent);
+    border-bottom: 1px solid color-mix(in srgb, var(--rule) 80%, transparent);
+  }
+
+  .case-grid i.active { background: color-mix(in srgb, var(--msa) 22%, transparent); }
+
+  .case-copy {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: clamp(2.25rem, 6vw, 5rem);
+  }
+
+  .case-copy h2 {
+    max-width: 12ch;
+    margin: 0;
+    font-size: clamp(2.7rem, 5vw, 4.8rem);
+    font-weight: 400;
+    letter-spacing: -0.045em;
+    line-height: 0.98;
+  }
+
+  .case-copy > p:not(.section-label) {
+    max-width: 40rem;
+    margin: 1.8rem 0 0;
+    color: var(--fg-muted);
+    font-size: 1rem;
+    line-height: 1.7;
+  }
+
+  .case-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 2rem;
+    font-family: var(--font-sans);
+  }
+
+  .case-actions a {
+    display: inline-flex;
+    min-height: 3rem;
+    align-items: center;
+    gap: 1rem;
+    padding: 0 1.15rem;
+    font-size: 0.78rem;
+    font-weight: 650;
+    text-decoration: none;
+  }
+
+  .primary-link { background: var(--fg); color: var(--bg); }
+  .primary-link:hover { background: var(--accent); color: var(--page-paper); }
+  .secondary-link { border: 1px solid var(--rule); color: var(--fg); }
+  .secondary-link:hover { border-color: var(--fg-muted); }
+
+  .signature {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 3rem;
+    padding-block: 4rem 1rem;
+  }
+
+  .signature p {
+    max-width: 44rem;
+    margin: 0;
+    color: var(--fg-muted);
+    font-size: 1.03rem;
+    line-height: 1.65;
+  }
+
+  .signature > span {
+    flex: none;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+  }
+
+  @media (max-width: 820px) {
+    .about-hero { grid-template-columns: 1fr; min-height: auto; }
+    .manifesto { grid-template-columns: 1fr; }
+    .manifesto-index { display: none; }
+    .method { grid-template-columns: 1fr; }
+    .case-study { grid-template-columns: 1fr; }
+    .case-figure { min-height: 22rem; border-right: 0; border-bottom: 1px solid var(--rule); }
+  }
+
+  @media (max-width: 560px) {
+    .about-page { width: min(100% - 2rem, 76rem); }
+    .about-hero { gap: 3rem; padding-block: 4rem 5rem; }
+    .about-hero h1 { font-size: clamp(3.3rem, 16vw, 5rem); }
+    .manifesto { padding: 2rem 1.5rem; box-shadow: 0.65rem 0.65rem 0 color-mix(in srgb, var(--accent) 7%, transparent); }
+    .method-steps li { grid-template-columns: 1fr; gap: 0; }
+    .step-index { grid-row: auto; margin-bottom: 1.1rem; }
+    .case-figure { min-height: 18rem; }
+    .case-copy { padding: 2rem 1.5rem; }
+    .case-actions { align-items: stretch; flex-direction: column; }
+    .case-actions a { justify-content: center; }
+    .signature { align-items: flex-start; flex-direction: column; gap: 1.5rem; }
+  }
+</style>

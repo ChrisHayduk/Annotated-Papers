@@ -12,6 +12,87 @@ if (page !== undefined) parts.push(`p.${page}`);
 const citation = parts.join(', ');
 ---
 <blockquote class="paper-quote">
-  <slot />
-  {citation && <cite>— {citation}</cite>}
+  <span class="paper-quote-mark" aria-hidden="true">“</span>
+  <div class="paper-quote-label">From the paper</div>
+  <div class="paper-quote-body"><slot /></div>
+  {citation && <cite>{citation}</cite>}
 </blockquote>
+
+<style>
+  .paper-quote {
+    position: relative;
+    margin: 1.75rem 0;
+    padding: 1.25rem 1.4rem 1.25rem 1.65rem;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 28%, var(--rule));
+    border-left: 0.25rem solid var(--data-structure, var(--accent));
+    border-radius: 0.25rem 0.8rem 0.8rem 0.25rem;
+    background:
+      radial-gradient(circle at 96% 0%, color-mix(in oklab, var(--data-structure, var(--accent)) 13%, transparent), transparent 42%),
+      var(--surface, color-mix(in oklab, var(--bg) 96%, var(--fg) 4%));
+    color: var(--fg);
+    box-shadow: 0 0.8rem 2.5rem color-mix(in oklab, var(--fg) 4%, transparent);
+    font-style: normal;
+  }
+
+  .paper-quote-mark {
+    position: absolute;
+    top: -0.15rem;
+    right: 0.85rem;
+    color: color-mix(in oklab, var(--data-structure, var(--accent)) 18%, transparent);
+    font-family: var(--font-serif);
+    font-size: 6rem;
+    font-weight: 500;
+    line-height: 1;
+    pointer-events: none;
+    user-select: none;
+  }
+
+  .paper-quote-label {
+    position: relative;
+    margin-bottom: 0.65rem;
+    color: var(--data-structure, var(--accent));
+    font-family: var(--font-sans);
+    font-size: 0.68rem;
+    font-weight: 750;
+    letter-spacing: 0.12em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .paper-quote-body {
+    position: relative;
+    font-size: 1.08em;
+    font-style: italic;
+    line-height: 1.65;
+  }
+
+  .paper-quote > cite {
+    position: relative;
+    display: block;
+    margin-top: 0.9rem;
+    color: var(--fg-muted);
+    font-family: var(--font-sans);
+    font-size: 0.75rem;
+    font-style: normal;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .paper-quote > cite::before {
+    margin-right: 0.45rem;
+    color: var(--data-structure, var(--accent));
+    content: '—';
+  }
+
+  :global(.paper-quote-body > :first-child) { margin-top: 0; }
+  :global(.paper-quote-body > :last-child) { margin-bottom: 0; }
+
+  @media (max-width: 640px) {
+    .paper-quote {
+      padding: 1.1rem 1rem 1.1rem 1.2rem;
+    }
+
+    .paper-quote-mark { font-size: 4.5rem; }
+  }
+</style>

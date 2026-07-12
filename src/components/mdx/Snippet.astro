@@ -33,28 +33,251 @@ const html = await codeToHtml(result.code, {
 });
 const href = resolveRepoUrl(file, `${result.start}-${result.end}`);
 const label = title ?? symbol ?? `${file}:${result.start}-${result.end}`;
+const sourceLabel = `${file}:${result.start}-${result.end}`;
 ---
 
 <figure class="snippet">
-  <div set:html={html} />
-  <footer>
-    <span>{label}</span>
-    <a href={href} target="_blank" rel="noopener">view on GitHub →</a>
+  <figcaption class="snippet-header">
+    <span class="snippet-heading">
+      <span class="snippet-kicker">Code excerpt</span>
+      <span class="snippet-title">{label}</span>
+    </span>
+    <span class="snippet-actions">
+      <button
+        class="snippet-action snippet-copy"
+        type="button"
+        data-snippet-copy
+        aria-label={`Copy ${label} code to clipboard`}
+      >
+        <span data-copy-label aria-live="polite">Copy code</span>
+      </button>
+      <a
+        class="snippet-action snippet-source"
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Open pinned source ${sourceLabel} on GitHub (opens in a new tab)`}
+      >Pinned source <span aria-hidden="true">↗</span></a>
+    </span>
+  </figcaption>
+  <div
+    class="snippet-scroll"
+    tabindex="0"
+    role="group"
+    aria-label={`Scrollable code excerpt: ${label}`}
+  >
+    <div class="snippet-code" set:html={html} />
+  </div>
+  <footer class="snippet-footer">
+    <span class="snippet-pin" aria-hidden="true"></span>
+    <span>Pinned to</span>
+    <code>{sourceLabel}</code>
   </footer>
 </figure>
 
 <style is:global>
+  .snippet {
+    position: relative;
+    margin: 1.6rem 0;
+    overflow: hidden;
+    border: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 18%, var(--rule));
+    border-radius: 0.8rem;
+    background: var(--surface, color-mix(in oklab, var(--bg) 96%, var(--fg) 4%));
+    box-shadow: 0 0.85rem 2.6rem color-mix(in oklab, var(--fg) 6%, transparent);
+  }
+
+  .snippet .snippet-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin: 0;
+    padding: 0.7rem 0.8rem 0.7rem 1rem;
+    border-bottom: 1px solid var(--rule);
+    background: var(--surface-strong, color-mix(in oklab, var(--bg) 91%, var(--fg) 9%));
+    text-align: left;
+  }
+
+  .snippet .snippet-heading {
+    display: grid;
+    min-width: 0;
+    gap: 0.24rem;
+  }
+
+  .snippet .snippet-kicker {
+    color: var(--data-structure, var(--accent));
+    font-family: var(--font-sans);
+    font-size: 0.63rem;
+    font-weight: 780;
+    letter-spacing: 0.11em;
+    line-height: 1;
+    text-transform: uppercase;
+  }
+
+  .snippet .snippet-title {
+    overflow: hidden;
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 620;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .snippet .snippet-actions {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 0.42rem;
+  }
+
+  .snippet .snippet-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 1.85rem;
+    box-sizing: border-box;
+    padding: 0.35rem 0.58rem;
+    border: 1px solid var(--rule);
+    border-radius: 0.4rem;
+    background: color-mix(in oklab, var(--bg) 86%, transparent);
+    color: var(--fg-muted);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: 0.68rem;
+    font-weight: 680;
+    line-height: 1;
+    text-decoration: none;
+    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+  }
+
+  .snippet .snippet-action:hover {
+    border-color: color-mix(in oklab, var(--data-structure, var(--accent)) 56%, var(--rule));
+    background: color-mix(in oklab, var(--data-structure, var(--accent)) 8%, var(--bg));
+    color: var(--fg);
+  }
+
+  .snippet .snippet-action:focus-visible,
+  .snippet .snippet-scroll:focus-visible {
+    outline: 2px solid var(--data-structure, var(--accent));
+    outline-offset: -2px;
+  }
+
+  .snippet .snippet-copy[data-state='success'] {
+    border-color: var(--data-msa, var(--accent));
+    color: var(--data-msa, var(--accent));
+  }
+
+  .snippet .snippet-copy[data-state='error'] {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .snippet .snippet-scroll {
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    background: color-mix(in oklab, var(--bg) 97%, var(--fg) 3%);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+
+  .snippet .snippet-code {
+    min-width: max-content;
+  }
+
   .snippet pre.shiki {
     margin: 0;
-    padding: 1rem 1.15rem;
-    border-radius: 6px;
-    border: 1px solid var(--rule);
-    overflow-x: auto;
-    font-size: 0.88rem;
-    line-height: 1.55;
+    min-width: 100%;
+    box-sizing: border-box;
+    padding: 1.1rem 1.2rem 1.2rem;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    font-size: 0.82rem;
+    line-height: 1.62;
+    tab-size: 2;
   }
+
   html.dark .snippet pre.shiki,
   html.dark .snippet pre.shiki span { color: var(--shiki-dark) !important; background-color: var(--shiki-dark-bg) !important; }
   html:not(.dark) .snippet pre.shiki,
   html:not(.dark) .snippet pre.shiki span { color: var(--shiki-light) !important; background-color: var(--shiki-light-bg) !important; }
+
+  .snippet .snippet-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.38rem;
+    min-width: 0;
+    margin: 0;
+    padding: 0.52rem 0.95rem 0.58rem;
+    border-top: 1px solid var(--rule);
+    color: var(--fg-muted);
+    font-family: var(--font-sans);
+    font-size: 0.66rem;
+    line-height: 1.35;
+  }
+
+  .snippet .snippet-footer code {
+    min-width: 0;
+    padding: 0;
+    overflow-wrap: anywhere;
+    background: transparent;
+    color: color-mix(in oklab, var(--fg) 85%, var(--fg-muted));
+    font-size: 0.68rem;
+  }
+
+  .snippet .snippet-pin {
+    width: 0.42rem;
+    height: 0.42rem;
+    flex: 0 0 auto;
+    border-radius: 50%;
+    background: var(--data-structure, var(--accent));
+    box-shadow: 0 0 0 0.2rem color-mix(in oklab, var(--data-structure, var(--accent)) 15%, transparent);
+  }
+
+  @media (max-width: 640px) {
+    .snippet .snippet-header {
+      align-items: stretch;
+      flex-direction: column;
+      gap: 0.65rem;
+      padding: 0.75rem;
+    }
+
+    .snippet .snippet-actions { width: 100%; }
+    .snippet .snippet-action { flex: 1 1 0; }
+    .snippet pre.shiki { padding: 1rem; font-size: 0.77rem; }
+    .snippet .snippet-footer { padding-inline: 0.75rem; }
+  }
 </style>
+
+<script>
+  document.querySelectorAll<HTMLButtonElement>('[data-snippet-copy]').forEach((button) => {
+    if (button.dataset.copyReady === 'true') return;
+    button.dataset.copyReady = 'true';
+
+    button.addEventListener('click', async () => {
+      const figure = button.closest<HTMLElement>('.snippet');
+      const code = figure?.querySelector<HTMLElement>('pre code, pre');
+      const label = button.querySelector<HTMLElement>('[data-copy-label]');
+      const text = code?.textContent ?? '';
+      if (!text || !label) return;
+
+      try {
+        if (!navigator.clipboard || !window.isSecureContext) throw new Error('Clipboard API unavailable');
+        await navigator.clipboard.writeText(text);
+        button.dataset.state = 'success';
+        label.textContent = 'Copied';
+      } catch {
+        button.dataset.state = 'error';
+        label.textContent = 'Copy failed';
+      }
+
+      window.setTimeout(() => {
+        delete button.dataset.state;
+        label.textContent = 'Copy code';
+      }, 1800);
+    });
+  });
+</script>

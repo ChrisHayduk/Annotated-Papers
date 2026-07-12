@@ -9,19 +9,62 @@ interface Props {
 const { file, lines, symbol } = Astro.props;
 const href = resolveRepoUrl(file, lines);
 const label = symbol ?? (lines ? `${file}:${lines}` : file);
+const location = `${file}${lines ? `:${lines}` : ''}`;
 ---
-<a class="code-ref" href={href} target="_blank" rel="noopener" title={`${file}${lines ? ':' + lines : ''}`}>
-  <code>{label}</code>
+
+<a
+  class="code-ref"
+  href={href}
+  target="_blank"
+  rel="noopener noreferrer"
+  title={`Open pinned source: ${location}`}
+  aria-label={`Open pinned source ${location} on GitHub (opens in a new tab)`}
+>
+  <code>{label}</code><span class="code-ref-action" aria-hidden="true">↗</span>
 </a>
 
 <style>
-  .code-ref { text-decoration: none; }
+  .code-ref {
+    display: inline-flex;
+    align-items: baseline;
+    max-width: 100%;
+    padding: 0.08em 0.32em 0.1em 0.38em;
+    gap: 0.24em;
+    border: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 24%, var(--rule));
+    border-radius: 0.3rem;
+    background: color-mix(in oklab, var(--data-structure, var(--accent)) 6%, transparent);
+    color: color-mix(in oklab, var(--fg) 86%, var(--data-structure, var(--accent)));
+    text-decoration: none;
+    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+  }
+
   .code-ref code {
-    padding: 0.05em 0.3em;
-    border: 1px solid var(--rule);
-    border-radius: 3px;
+    min-width: 0;
+    padding: 0;
+    overflow-wrap: anywhere;
+    border: 0;
     background: transparent;
     font-size: 0.85em;
   }
-  .code-ref:hover code { border-color: var(--fg-muted); }
+
+  .code-ref-action {
+    flex: 0 0 auto;
+    color: var(--data-structure, var(--accent));
+    font-family: var(--font-sans);
+    font-size: 0.7em;
+    font-weight: 750;
+    line-height: 1;
+    transform: translateY(-0.06em);
+  }
+
+  .code-ref:hover {
+    border-color: color-mix(in oklab, var(--data-structure, var(--accent)) 68%, var(--rule));
+    background: color-mix(in oklab, var(--data-structure, var(--accent)) 11%, transparent);
+    color: var(--fg);
+  }
+
+  .code-ref:focus-visible {
+    outline: 2px solid var(--data-structure, var(--accent));
+    outline-offset: 2px;
+  }
 </style>
