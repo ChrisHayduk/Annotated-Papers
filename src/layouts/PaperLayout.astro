@@ -102,7 +102,7 @@ const jsonLd = {
     <details id="mobile-contents">
       <summary>
         <span class="mobile-reader-label">
-          <span class="mobile-reader-kicker">Now reading</span>
+          <span class="mobile-reader-kicker">Current section</span>
           <span id="mobile-current-section">Introduction</span>
         </span>
         <span class="mobile-reader-meta"><span data-reading-percent>0%</span> · Contents</span>
@@ -110,7 +110,7 @@ const jsonLd = {
       <div class="mobile-toc-panel">
         <div class="mobile-toc-head">
           <span>{chapterCount} chapters</span>
-          <span>{frontmatter.readingTimeMinutes ? `~${frontmatter.readingTimeMinutes} min` : 'Deep read'}</span>
+          <span>{frontmatter.readingTimeMinutes ? `${frontmatter.readingTimeMinutes} min` : 'Article'}</span>
         </div>
         <TOC headings={headings} />
       </div>
@@ -120,7 +120,7 @@ const jsonLd = {
   <div class="paper-shell" data-paper-slug={frontmatter.slug}>
     <aside class="paper-toc-column" aria-label="Reading navigation">
       <div class="paper-toc-intro">
-        <p>Reading map</p>
+        <p>Contents</p>
         <span><span data-reading-percent>0%</span> complete</span>
       </div>
       <TOC headings={headings} />
@@ -133,34 +133,6 @@ const jsonLd = {
       </div>
     </article>
 
-    <aside class="paper-context-column" aria-label="About this annotation">
-      <div class="paper-context-card">
-        <p class="context-kicker">Inside this guide</p>
-        <dl>
-          {frontmatter.readingTimeMinutes && <div><dt>{frontmatter.readingTimeMinutes}</dt><dd>minutes</dd></div>}
-          <div><dt>{chapterCount}</dt><dd>chapters</dd></div>
-          {frontmatter.codeSnippetCount && <div><dt>{frontmatter.codeSnippetCount}</dt><dd>code excerpts</dd></div>}
-          {frontmatter.interactiveCount && <div><dt>{frontmatter.interactiveCount}</dt><dd>interactive labs</dd></div>}
-        </dl>
-
-        <div class="context-legend" aria-label="Reading key">
-          <p>Reading key</p>
-          <span><i data-kind="annotation"></i> Annotation</span>
-          <span><i data-kind="code"></i> Pinned code</span>
-          <span><i data-kind="interactive"></i> Interactive lab</span>
-        </div>
-
-        <div class="context-actions">
-          {originalPaperUrl && <a href={originalPaperUrl} target="_blank" rel="noopener">Original paper ↗</a>}
-          {frontmatter.referenceRepo && (
-            <a href={`${frontmatter.referenceRepo.url}/tree/${frontmatter.referenceRepo.commit}`} target="_blank" rel="noopener">
-              Reference code ↗
-            </a>
-          )}
-          <a href="#main-content" id="back-to-top">Back to top ↑</a>
-        </div>
-      </div>
-    </aside>
   </div>
 
   <script is:inline define:vars={{ paperSlug: frontmatter.slug }}>
@@ -238,16 +210,14 @@ const jsonLd = {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .paper-toc-column,
-  .paper-context-column { display: none; }
+  .paper-toc-column { display: none; }
 
   .mobile-reader-dock {
     position: sticky;
     z-index: 35;
     top: var(--header-height);
     border-bottom: 1px solid var(--rule);
-    background: color-mix(in oklab, var(--bg) 95%, transparent);
-    backdrop-filter: blur(16px);
+    background: var(--bg);
     font-family: var(--font-sans);
   }
 
@@ -265,7 +235,7 @@ const jsonLd = {
   .mobile-reader-dock summary::-webkit-details-marker { display: none; }
   .mobile-reader-label { min-width: 0; display: grid; gap: 0.12rem; }
   .mobile-reader-kicker {
-    color: var(--fg-faint);
+    color: var(--fg-muted);
     font-size: 0.58rem;
     font-weight: 700;
     letter-spacing: 0.1em;
@@ -292,7 +262,6 @@ const jsonLd = {
     border-top: 1px solid var(--rule);
     padding: 1rem;
     background: var(--surface-strong);
-    box-shadow: var(--shadow-float);
   }
 
   .mobile-toc-head {
@@ -337,89 +306,13 @@ const jsonLd = {
     .paper-toc-intro p,
     .paper-toc-intro span { margin: 0; }
     .paper-toc-intro p { color: var(--fg); font-size: 0.72rem; font-weight: 700; }
-    .paper-toc-intro span { color: var(--fg-faint); font-size: 0.64rem; }
+    .paper-toc-intro span { color: var(--fg-muted); font-size: 0.64rem; }
   }
 
-  @media (min-width: 1260px) {
+  /* The right column is kept open for margin notes used by the annotation. */
+  @media (min-width: 1200px) {
     .paper-shell {
       grid-template-columns: 17rem minmax(0, 1fr) 17rem;
     }
-
-    .paper-context-column {
-      display: block;
-      position: sticky;
-      top: var(--header-height);
-      align-self: start;
-      max-height: calc(100dvh - var(--header-height));
-      padding: 3rem 1.5rem 2rem 1.1rem;
-    }
-
-    .paper-context-card {
-      padding: 1.1rem;
-      border: 1px solid var(--rule);
-      background: var(--surface);
-      font-family: var(--font-sans);
-    }
-
-    .context-kicker {
-      margin: 0 0 0.85rem;
-      color: var(--fg);
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-
-    .paper-context-card dl {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 0.8rem;
-      margin: 0;
-    }
-
-    .paper-context-card dl div { display: grid; gap: 0.1rem; }
-    .paper-context-card dt { color: var(--fg); font: 600 1.25rem/1 var(--font-serif); }
-    .paper-context-card dd { margin: 0; color: var(--fg-muted); font-size: 0.62rem; line-height: 1.3; }
-
-    .context-legend {
-      display: grid;
-      gap: 0.5rem;
-      margin-top: 1.1rem;
-      padding-top: 1rem;
-      border-top: 1px solid var(--rule);
-    }
-    .context-legend p {
-      margin: 0 0 0.1rem;
-      color: var(--fg-faint);
-      font-size: 0.6rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-    }
-    .context-legend span {
-      display: flex;
-      align-items: center;
-      gap: 0.45rem;
-      color: var(--fg-muted);
-      font-size: 0.65rem;
-    }
-    .context-legend i { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--accent); }
-    .context-legend i[data-kind="code"] { background: var(--data-msa); }
-    .context-legend i[data-kind="interactive"] { background: var(--data-structure); }
-
-    .context-actions {
-      display: grid;
-      gap: 0.55rem;
-      margin-top: 1rem;
-      padding-top: 1rem;
-      border-top: 1px solid var(--rule);
-    }
-    .context-actions a {
-      color: var(--fg-muted);
-      font-size: 0.65rem;
-      font-weight: 600;
-      text-decoration: none;
-    }
-    .context-actions a:hover { color: var(--accent); }
   }
 </style>

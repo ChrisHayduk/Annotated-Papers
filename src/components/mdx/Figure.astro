@@ -37,12 +37,6 @@ const { src, alt, caption, id, number } = Astro.props;
     place-items: center;
     overflow-x: auto;
     overscroll-behavior-inline: contain;
-    border: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 15%, var(--rule));
-    border-radius: 0.85rem;
-    background:
-      radial-gradient(circle at 50% 0%, color-mix(in oklab, var(--data-structure, var(--accent)) 7%, transparent), transparent 54%),
-      var(--surface, color-mix(in oklab, var(--bg) 97%, var(--fg) 3%));
-    box-shadow: 0 0.9rem 2.8rem color-mix(in oklab, var(--fg) 5%, transparent);
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
   }
@@ -54,15 +48,15 @@ const { src, alt, caption, id, number } = Astro.props;
     height: auto;
     margin-inline: auto;
     object-fit: contain;
-    border-radius: calc(0.85rem - 1px);
   }
 
   .paper-figure figcaption {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);
     gap: 0.55rem;
-    margin-top: 0.75rem;
-    padding: 0 0.25rem;
+    margin-top: 0.65rem;
+    padding: 0.55rem 0 0;
+    border-top: 1px solid var(--rule);
     color: var(--fg-muted);
     font-family: var(--font-sans);
     font-size: 0.78rem;
@@ -72,13 +66,10 @@ const { src, alt, caption, id, number } = Astro.props;
 
   .paper-figure figcaption strong {
     align-self: start;
-    padding: 0.17rem 0.42rem;
-    border-radius: 999px;
-    background: color-mix(in oklab, var(--data-structure, var(--accent)) 11%, transparent);
     color: var(--data-structure, var(--accent));
-    font-size: 0.65rem;
-    font-weight: 750;
-    letter-spacing: 0.04em;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
     line-height: 1.35;
     text-transform: uppercase;
   }

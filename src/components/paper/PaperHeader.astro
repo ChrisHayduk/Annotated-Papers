@@ -3,6 +3,7 @@ interface Props {
   frontmatter: {
     title: string;
     subtitle?: string;
+    description: string;
     authors: string[];
     paperYear: number;
     annotator: string;
@@ -30,249 +31,260 @@ const originalPaperUrl = frontmatter.doi
   : frontmatter.arxivId
     ? `https://arxiv.org/abs/${frontmatter.arxivId}`
     : undefined;
+const sourceIdentifier = frontmatter.doi
+  ? `DOI ${frontmatter.doi}`
+  : frontmatter.arxivId
+    ? `arXiv ${frontmatter.arxivId}`
+    : undefined;
 ---
 
 <header class="paper-header">
-  <a class="paper-breadcrumb" href="/">Annotated Papers <span>／ Volume 01</span></a>
+  <a class="paper-breadcrumb" href="/">Papers</a>
 
   <div class="paper-kicker-row">
-    <p class="eyebrow">Guided implementation walkthrough</p>
-    {frontmatter.venue && <p class="paper-venue">{frontmatter.venue} · {frontmatter.paperYear}</p>}
+    <p>Paper annotation</p>
+    <p>{frontmatter.venue ? `${frontmatter.venue} · ` : ''}{frontmatter.paperYear}</p>
   </div>
 
   <h1>{frontmatter.title}</h1>
-  {frontmatter.subtitle && <p class="paper-subtitle">{frontmatter.subtitle}</p>}
+  <p class="paper-summary">{frontmatter.subtitle ?? frontmatter.description}</p>
 
-  <p class="paper-citation">
-    Based on {frontmatter.authors.join(', ')} ({frontmatter.paperYear}).
-    Annotated by <a href="https://chrishayduk.com" rel="me author" target="_blank">{frontmatter.annotator}</a>.
+  <p class="paper-source">
+    <span>Source</span>
+    {frontmatter.authors.join(', ')} ({frontmatter.paperYear}){frontmatter.venue ? `, ${frontmatter.venue}` : ''}.
+    {sourceIdentifier && <> {sourceIdentifier}.</>}
   </p>
 
-  <div class="paper-action-row">
-    <a class="button-primary" href="#0-prelims">Begin the full read <span aria-hidden="true">↓</span></a>
+  <nav class="paper-links" aria-label="Paper resources">
     {originalPaperUrl && (
-      <a class="button-secondary" href={originalPaperUrl} target="_blank" rel="noopener">Original paper ↗</a>
+      <a href={originalPaperUrl} target="_blank" rel="noopener">Original paper <span aria-hidden="true">↗</span></a>
     )}
     {frontmatter.referenceRepo && (
-      <a class="button-secondary" href={`${frontmatter.referenceRepo.url}/tree/${frontmatter.referenceRepo.commit}`} target="_blank" rel="noopener">
-        Reference code ↗
+      <a href={`${frontmatter.referenceRepo.url}/tree/${frontmatter.referenceRepo.commit}`} target="_blank" rel="noopener">
+        Reference implementation <span aria-hidden="true">↗</span>
       </a>
     )}
-  </div>
+  </nav>
 
-  <div class="paper-ledger" aria-label="Guide statistics">
-    {frontmatter.readingTimeMinutes && <div><strong>{frontmatter.readingTimeMinutes}</strong><span>minute guided read</span></div>}
-    <div><strong>{frontmatter.chapterCount ?? chapterCount}</strong><span>chapters</span></div>
-    {frontmatter.codeSnippetCount && <div><strong>{frontmatter.codeSnippetCount}</strong><span>pinned code excerpts</span></div>}
-    {frontmatter.interactiveCount && <div><strong>{frontmatter.interactiveCount}</strong><span>interactive labs</span></div>}
-  </div>
+  <dl class="paper-stats" aria-label="Annotation statistics">
+    {frontmatter.readingTimeMinutes && <div><dt>Reading time</dt><dd>{frontmatter.readingTimeMinutes} min</dd></div>}
+    <div><dt>Chapters</dt><dd>{frontmatter.chapterCount ?? chapterCount}</dd></div>
+    {frontmatter.codeSnippetCount && <div><dt>Code excerpts</dt><dd>{frontmatter.codeSnippetCount}</dd></div>}
+    {frontmatter.interactiveCount && <div><dt>Interactive figures</dt><dd>{frontmatter.interactiveCount}</dd></div>}
+  </dl>
 
-  <section class="reader-briefing" aria-labelledby="reader-briefing-title">
-    <div class="reader-briefing-copy">
-      <p class="eyebrow">Reader briefing</p>
-      <h2 id="reader-briefing-title">From biological intuition to executable architecture.</h2>
-      <p>
-        Follow the ideas from protein folding and evolutionary signal through the
-        Evoformer, Invariant Point Attention, FAPE, training, and a real overfit run.
-        The biology is introduced from first principles; basic deep-learning notation helps.
-      </p>
-    </div>
-    <ol class="reading-map" aria-label="Four-part reading map">
-      <li><a href="#0-prelims"><span>01</span><strong>Foundations</strong><small>§§0–1 · biology and the problem</small></a></li>
-      <li><a href="#2-input-representations"><span>02</span><strong>Representations</strong><small>§§2–9 · MSA, pair stack, Evoformer</small></a></li>
-      <li><a href="#10-the-structure-module"><span>03</span><strong>Geometry & loss</strong><small>§§10–12 · frames, IPA, FAPE</small></a></li>
-      <li><a href="#13-training"><span>04</span><strong>Training & limits</strong><small>§§13–15 · runnable proof and gaps</small></a></li>
+  <nav class="contents-overview" aria-labelledby="contents-overview-title">
+    <h2 id="contents-overview-title">Contents overview</h2>
+    <ol>
+      <li><a href="#0-prelims"><span>01</span><strong>Foundations</strong><small>Sections 0–1</small></a></li>
+      <li><a href="#2-input-representations"><span>02</span><strong>Representations</strong><small>Sections 2–9</small></a></li>
+      <li><a href="#10-the-structure-module"><span>03</span><strong>Structure and loss</strong><small>Sections 10–12</small></a></li>
+      <li><a href="#13-training"><span>04</span><strong>Training and limitations</strong><small>Sections 13–15</small></a></li>
     </ol>
-  </section>
+  </nav>
 
   <div class="paper-provenance">
-    <span>Published {published}{updated && updated !== published && <> · Updated {updated}</>}</span>
-    {frontmatter.doi && <a href={`https://doi.org/${frontmatter.doi}`} target="_blank" rel="noopener">doi:{frontmatter.doi}</a>}
-    {shortCommit && <span>Source pinned at <code>{shortCommit}</code></span>}
+    <span>Annotation published {published}{updated && updated !== published && <> · Updated {updated}</>}</span>
+    <span>Annotated by <a href="https://chrishayduk.com" rel="me author">{frontmatter.annotator}</a></span>
+    {shortCommit && <span>Reference commit <code>{shortCommit}</code></span>}
   </div>
 </header>
 
 <style>
   .paper-header {
-    margin-bottom: 4.5rem;
-    padding-bottom: 3.5rem;
+    margin-bottom: 3.75rem;
+    padding-bottom: 3rem;
     border-bottom: 1px solid var(--rule);
   }
 
   .paper-breadcrumb {
-    display: inline-flex;
-    margin-bottom: 3rem;
+    display: inline-block;
+    margin-bottom: 2.5rem;
     color: var(--fg-muted);
-    font: 600 0.68rem/1.2 var(--font-sans);
-    letter-spacing: 0.04em;
+    font: 500 0.7rem/1.2 var(--font-sans);
     text-decoration: none;
   }
 
-  .paper-breadcrumb span { color: var(--fg-faint); }
-  .paper-breadcrumb:hover { color: var(--accent); }
+  .paper-breadcrumb::before {
+    margin-right: 0.4rem;
+    content: "←";
+  }
+
+  .paper-breadcrumb:hover { color: var(--fg); }
 
   .paper-kicker-row {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 1.1rem;
+    margin-bottom: 0.9rem;
+    color: var(--fg-muted);
+    font: 600 0.66rem/1.3 var(--font-sans);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
 
-  .paper-venue {
-    margin: 0;
-    color: var(--fg-faint);
-    font: 600 0.68rem/1.2 var(--font-sans);
-  }
+  .paper-kicker-row p { margin: 0; }
 
   .paper-header h1 {
-    max-width: 13ch;
+    max-width: 16ch;
     margin: 0;
     color: var(--fg);
-    font-size: clamp(3.2rem, 6.2vw, 5.8rem);
+    font-size: clamp(2.7rem, 5vw, 4.35rem);
     font-weight: 500;
-    letter-spacing: -0.045em;
-    line-height: 0.94;
+    letter-spacing: -0.035em;
+    line-height: 1;
     text-wrap: balance;
   }
 
-  .paper-subtitle {
-    max-width: 53ch;
-    margin: 1.35rem 0 0;
+  .paper-summary {
+    max-width: 58ch;
+    margin: 1.25rem 0 0;
     color: var(--fg-muted);
-    font-size: clamp(1.15rem, 2vw, 1.42rem);
-    font-style: normal;
-    line-height: 1.45;
-    text-wrap: balance;
+    font-size: clamp(1.05rem, 1.3vw, 1.2rem);
+    line-height: 1.55;
   }
 
-  .paper-citation {
-    margin: 1.2rem 0 0;
+  .paper-source {
+    max-width: 72ch;
+    margin: 1.25rem 0 0;
     color: var(--fg-muted);
-    font: 400 0.8rem/1.55 var(--font-sans);
+    font: 400 0.76rem/1.6 var(--font-sans);
   }
 
-  .paper-action-row {
+  .paper-source > span {
+    margin-right: 0.45rem;
+    color: var(--fg);
+    font-weight: 600;
+  }
+
+  .paper-links {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.65rem;
-    margin-top: 1.75rem;
+    gap: 0.5rem 1.25rem;
+    margin-top: 1.4rem;
+    font-family: var(--font-sans);
   }
 
-  .paper-ledger {
+  .paper-links a {
+    color: var(--fg);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-underline-offset: 0.25em;
+  }
+
+  .paper-links a:hover { color: var(--accent); }
+
+  .paper-stats {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin-top: 2.25rem;
+    margin: 2.25rem 0 0;
     border-block: 1px solid var(--rule);
   }
 
-  .paper-ledger > div {
+  .paper-stats > div {
     min-width: 0;
-    padding: 1.05rem 1rem 1rem 0;
-    display: grid;
-    gap: 0.2rem;
+    padding: 0.9rem 0.9rem 0.9rem 0;
   }
 
-  .paper-ledger > div + div {
-    padding-left: 1rem;
+  .paper-stats > div + div {
+    padding-left: 0.9rem;
     border-left: 1px solid var(--rule);
   }
 
-  .paper-ledger strong {
+  .paper-stats dt {
+    color: var(--fg-muted);
+    font: 500 0.61rem/1.3 var(--font-sans);
+  }
+
+  .paper-stats dd {
+    margin: 0.25rem 0 0;
     color: var(--fg);
-    font: 500 1.45rem/1 var(--font-serif);
+    font: 500 1.1rem/1.15 var(--font-serif);
     font-variant-numeric: tabular-nums;
   }
 
-  .paper-ledger span {
-    color: var(--fg-muted);
-    font: 600 0.62rem/1.25 var(--font-sans);
-  }
+  .contents-overview { margin-top: 2.25rem; }
 
-  .reader-briefing {
-    margin-top: 2.5rem;
-    padding: clamp(1.3rem, 3vw, 2rem);
-    border: 1px solid var(--rule);
-    background:
-      linear-gradient(135deg, color-mix(in oklab, var(--accent-soft) 55%, transparent), transparent 50%),
-      var(--surface);
-  }
-
-  .reader-briefing-copy h2 {
-    max-width: 22ch;
-    margin: 0.55rem 0 0;
+  .contents-overview h2 {
+    margin: 0 0 0.75rem;
     padding: 0;
     border: 0;
     color: var(--fg);
-    font-size: clamp(1.65rem, 3vw, 2.15rem);
-    font-weight: 500;
-    letter-spacing: -0.025em;
-    line-height: 1.08;
+    font: 600 0.72rem/1.3 var(--font-sans);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
   }
 
-  .reader-briefing-copy > p:last-child {
-    max-width: 62ch;
-    margin: 0.9rem 0 0;
-    color: var(--fg-muted);
-    font: 400 0.82rem/1.65 var(--font-sans);
-  }
-
-  .reading-map {
+  .contents-overview ol {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 0;
-    margin: 1.6rem 0 0;
+    margin: 0;
     padding: 0;
     border-top: 1px solid var(--rule);
     list-style: none;
   }
 
-  .reading-map li { margin: 0; }
-  .reading-map li:nth-child(odd) { border-right: 1px solid var(--rule); }
-  .reading-map li:nth-child(-n + 2) { border-bottom: 1px solid var(--rule); }
-  .reading-map a {
-    min-height: 5.5rem;
-    padding: 1rem;
+  .contents-overview li {
+    margin: 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .contents-overview li:nth-child(odd) { border-right: 1px solid var(--rule); }
+
+  .contents-overview a {
+    min-height: 3.6rem;
+    padding: 0.75rem 0.8rem;
     display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 0.12rem 0.7rem;
-    align-content: center;
+    grid-template-columns: 1.7rem minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 0.5rem;
     color: var(--fg);
     font-family: var(--font-sans);
     text-decoration: none;
-    transition: background 140ms ease;
   }
-  .reading-map a:hover { background: color-mix(in oklab, var(--surface-strong) 70%, transparent); }
-  .reading-map span {
-    grid-row: 1 / 3;
-    color: var(--accent);
-    font: 700 0.66rem/1.4 var(--font-mono);
+
+  .contents-overview a:hover { background: var(--surface); }
+
+  .contents-overview a > span {
+    color: var(--fg-muted);
+    font: 500 0.61rem/1 var(--font-mono);
   }
-  .reading-map strong { font-size: 0.76rem; }
-  .reading-map small { color: var(--fg-muted); font-size: 0.65rem; line-height: 1.35; }
+
+  .contents-overview strong {
+    font-size: 0.73rem;
+    font-weight: 600;
+  }
+
+  .contents-overview small {
+    color: var(--fg-muted);
+    font-size: 0.62rem;
+  }
 
   .paper-provenance {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem 1rem;
-    margin-top: 1.2rem;
-    color: var(--fg-faint);
+    gap: 0.35rem 1rem;
+    margin-top: 1.1rem;
+    color: var(--fg-muted);
     font: 400 0.62rem/1.5 var(--font-sans);
   }
+
   .paper-provenance a { color: inherit; }
-  .paper-provenance code { color: var(--fg-muted); font-size: 0.95em; }
+  .paper-provenance code { color: var(--fg); font-size: 0.95em; }
 
   @media (max-width: 680px) {
-    .paper-header { margin-bottom: 3.25rem; padding-bottom: 2.5rem; }
-    .paper-breadcrumb { margin-bottom: 2.25rem; }
-    .paper-kicker-row { align-items: flex-start; flex-direction: column; gap: 0.4rem; }
-    .paper-header h1 { font-size: clamp(3rem, 16vw, 4.25rem); }
-    .paper-action-row :global(a) { width: 100%; }
-    .paper-ledger { grid-template-columns: 1fr 1fr; }
-    .paper-ledger > div:nth-child(3) { border-left: 0; }
-    .paper-ledger > div:nth-child(n + 3) { border-top: 1px solid var(--rule); }
-    .reading-map { grid-template-columns: 1fr; }
-    .reading-map li:nth-child(odd) { border-right: 0; }
-    .reading-map li:not(:last-child) { border-bottom: 1px solid var(--rule); }
+    .paper-header { margin-bottom: 3rem; padding-bottom: 2.5rem; }
+    .paper-breadcrumb { margin-bottom: 2rem; }
+    .paper-kicker-row { align-items: flex-start; flex-direction: column; gap: 0.3rem; }
+    .paper-header h1 { font-size: clamp(2.55rem, 13vw, 3.4rem); }
+    .paper-links { align-items: flex-start; flex-direction: column; }
+    .paper-stats { grid-template-columns: 1fr 1fr; }
+    .paper-stats > div:nth-child(3) { border-left: 0; }
+    .paper-stats > div:nth-child(n + 3) { border-top: 1px solid var(--rule); }
+    .contents-overview ol { grid-template-columns: 1fr; }
+    .contents-overview li:nth-child(odd) { border-right: 0; }
+    .contents-overview a { grid-template-columns: 1.7rem minmax(0, 1fr); }
+    .contents-overview small { grid-column: 2; }
   }
 </style>

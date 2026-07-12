@@ -39,7 +39,7 @@ const sourceLabel = `${file}:${result.start}-${result.end}`;
 <figure class="snippet">
   <figcaption class="snippet-header">
     <span class="snippet-heading">
-      <span class="snippet-kicker">Code excerpt</span>
+      <span class="snippet-kicker">Code</span>
       <span class="snippet-title">{label}</span>
     </span>
     <span class="snippet-actions">
@@ -57,7 +57,7 @@ const sourceLabel = `${file}:${result.start}-${result.end}`;
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`Open pinned source ${sourceLabel} on GitHub (opens in a new tab)`}
-      >Pinned source <span aria-hidden="true">↗</span></a>
+      >Source <span aria-hidden="true">↗</span></a>
     </span>
   </figcaption>
   <div
@@ -69,21 +69,18 @@ const sourceLabel = `${file}:${result.start}-${result.end}`;
     <div class="snippet-code" set:html={html} />
   </div>
   <footer class="snippet-footer">
-    <span class="snippet-pin" aria-hidden="true"></span>
-    <span>Pinned to</span>
+    <span>Source</span>
     <code>{sourceLabel}</code>
   </footer>
 </figure>
 
 <style is:global>
   .snippet {
-    position: relative;
     margin: 1.6rem 0;
     overflow: hidden;
-    border: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 18%, var(--rule));
-    border-radius: 0.8rem;
-    background: var(--surface, color-mix(in oklab, var(--bg) 96%, var(--fg) 4%));
-    box-shadow: 0 0.85rem 2.6rem color-mix(in oklab, var(--fg) 6%, transparent);
+    border: 1px solid var(--rule);
+    border-radius: 0.2rem;
+    background: var(--surface, var(--bg));
   }
 
   .snippet .snippet-header {
@@ -94,7 +91,7 @@ const sourceLabel = `${file}:${result.start}-${result.end}`;
     margin: 0;
     padding: 0.7rem 0.8rem 0.7rem 1rem;
     border-bottom: 1px solid var(--rule);
-    background: var(--surface-strong, color-mix(in oklab, var(--bg) 91%, var(--fg) 9%));
+    background: var(--surface-strong, color-mix(in oklab, var(--rule) 24%, transparent));
     text-align: left;
   }
 
@@ -105,11 +102,11 @@ const sourceLabel = `${file}:${result.start}-${result.end}`;
   }
 
   .snippet .snippet-kicker {
-    color: var(--data-structure, var(--accent));
+    color: var(--fg-muted);
     font-family: var(--font-sans);
     font-size: 0.63rem;
-    font-weight: 780;
-    letter-spacing: 0.11em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     line-height: 1;
     text-transform: uppercase;
   }
@@ -119,7 +116,7 @@ const sourceLabel = `${file}:${result.start}-${result.end}`;
     color: var(--fg);
     font-family: var(--font-mono);
     font-size: 0.78rem;
-    font-weight: 620;
+    font-weight: 600;
     line-height: 1.25;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -140,21 +137,21 @@ const sourceLabel = `${file}:${result.start}-${result.end}`;
     box-sizing: border-box;
     padding: 0.35rem 0.58rem;
     border: 1px solid var(--rule);
-    border-radius: 0.4rem;
-    background: color-mix(in oklab, var(--bg) 86%, transparent);
+    border-radius: 0.15rem;
+    background: transparent;
     color: var(--fg-muted);
     cursor: pointer;
     font-family: var(--font-sans);
     font-size: 0.68rem;
-    font-weight: 680;
+    font-weight: 650;
     line-height: 1;
     text-decoration: none;
     transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
   }
 
   .snippet .snippet-action:hover {
-    border-color: color-mix(in oklab, var(--data-structure, var(--accent)) 56%, var(--rule));
-    background: color-mix(in oklab, var(--data-structure, var(--accent)) 8%, var(--bg));
+    border-color: var(--fg-muted);
+    background: color-mix(in oklab, var(--rule) 30%, transparent);
     color: var(--fg);
   }
 
@@ -226,15 +223,6 @@ const sourceLabel = `${file}:${result.start}-${result.end}`;
     background: transparent;
     color: color-mix(in oklab, var(--fg) 85%, var(--fg-muted));
     font-size: 0.68rem;
-  }
-
-  .snippet .snippet-pin {
-    width: 0.42rem;
-    height: 0.42rem;
-    flex: 0 0 auto;
-    border-radius: 50%;
-    background: var(--data-structure, var(--accent));
-    box-shadow: 0 0 0 0.2rem color-mix(in oklab, var(--data-structure, var(--accent)) 15%, transparent);
   }
 
   @media (max-width: 640px) {

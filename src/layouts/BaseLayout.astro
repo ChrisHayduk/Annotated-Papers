@@ -11,7 +11,7 @@ interface Props {
   robots?: string;
 }
 
-const { title, description, ogImage = '/og.png', ogType = 'website', jsonLd, robots } = Astro.props;
+const { title, description, ogImage, ogType = 'website', jsonLd, robots } = Astro.props;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const resolvedOg = ogImage ? new URL(ogImage, Astro.url.origin).toString() : undefined;
 const currentPath = Astro.url.pathname;
@@ -78,15 +78,11 @@ const gscToken =
     <header class="site-nav">
       <div class="site-nav-inner">
         <a href="/" class="site-brand" aria-label="Annotated Papers by Chris Hayduk, home">
-          <span class="site-brand-mark" aria-hidden="true">AP</span>
-          <span class="site-brand-copy">
-            <span class="site-brand-name">Annotated Papers</span>
-            <span class="site-brand-byline">by Chris Hayduk</span>
-          </span>
+          <span class="site-brand-name">Annotated Papers</span>
         </a>
         <nav aria-label="Primary navigation">
-          <a href="/" aria-current={isLibrary ? 'page' : undefined}>Library</a>
-          <a href="/about" aria-current={isAbout ? 'page' : undefined}>Method</a>
+          <a href="/" aria-current={isLibrary ? 'page' : undefined}>Papers</a>
+          <a href="/about" aria-current={isAbout ? 'page' : undefined}>About</a>
           <a class="nav-notes" href="https://chrishayduk.com" rel="me">Notes&nbsp;↗</a>
           <button class="theme-toggle" id="theme-toggle" type="button" aria-label="Switch to dark mode">
             <span class="theme-toggle-moon" aria-hidden="true">☾</span>
@@ -102,19 +98,15 @@ const gscToken =
 
     <footer class="site-footer">
       <div class="site-footer-inner">
-        <div>
-          <p class="site-footer-brand">Research papers, opened up.</p>
-          <p class="site-footer-copy">
-            Guided technical walkthroughs connecting the paper, the mathematics,
-            readable implementations, and interactive experiments.
-          </p>
-        </div>
+        <p class="site-footer-copy">
+          Annotated Papers is a collection of research-paper annotations by
+          <a href="https://chrishayduk.com" rel="me">Chris Hayduk</a>.
+        </p>
         <nav class="site-footer-links" aria-label="Footer navigation">
-          <a href="/">Library</a>
-          <a href="/about">Method</a>
+          <a href="/">Papers</a>
+          <a href="/about">About</a>
           <a href="/rss.xml">RSS</a>
-          <a href="https://github.com/ChrisHayduk" rel="me">GitHub ↗</a>
-          <a href="https://chrishayduk.com" rel="me">Chris Hayduk ↗</a>
+          <a href="https://github.com/ChrisHayduk" rel="me">GitHub&nbsp;↗</a>
         </nav>
       </div>
     </footer>
@@ -137,3 +129,53 @@ const gscToken =
     </script>
   </body>
 </html>
+
+<style is:global>
+  .site-nav {
+    background: var(--bg);
+    backdrop-filter: none;
+  }
+
+  .site-nav-inner {
+    max-width: 88rem;
+    padding-block: 0.45rem;
+  }
+
+  .site-brand-name {
+    font-size: 0.84rem;
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+
+  .site-nav nav { gap: clamp(0.25rem, 1.5vw, 0.8rem); }
+
+  .site-nav nav a {
+    font-size: 0.75rem;
+    font-weight: 500;
+  }
+
+  .theme-toggle {
+    width: 2.25rem;
+    height: 2.25rem;
+    background: transparent;
+    font-size: 0.82rem;
+  }
+
+  .site-footer-inner {
+    max-width: 88rem;
+    padding-block: 1.5rem;
+    align-items: center;
+  }
+
+  .site-footer-copy {
+    max-width: none;
+    font-size: 0.72rem;
+  }
+
+  .site-footer-copy a { color: inherit; }
+
+  .site-footer-links a {
+    font-size: 0.72rem;
+    font-weight: 500;
+  }
+</style>

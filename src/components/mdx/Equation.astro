@@ -8,6 +8,7 @@ const equationLabel = number !== undefined ? `Equation ${number}` : 'Display equ
 ---
 
 <div class="equation" id={id} role="group" aria-label={equationLabel}>
+  <div class="equation-label">Equation</div>
   <div
     class="equation-body"
     tabindex="0"
@@ -24,13 +25,24 @@ const equationLabel = number !== undefined ? `Equation ${number}` : 'Display equ
     grid-template-columns: minmax(0, 1fr) auto;
     align-items: center;
     max-width: 100%;
-    gap: 0.75rem;
+    gap: 0.5rem 0.75rem;
     margin: 1.65rem 0;
     padding: 0.9rem 1rem;
     box-sizing: border-box;
     overflow: hidden;
-    border-block: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 18%, var(--rule));
-    background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--data-structure, var(--accent)) 5%, transparent) 50%, transparent);
+    border-block: 1px solid var(--rule);
+    background: color-mix(in oklab, var(--rule) 14%, transparent);
+  }
+
+  .equation-label {
+    grid-column: 1 / -1;
+    color: var(--fg-muted);
+    font-family: var(--font-sans);
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    line-height: 1;
+    text-transform: uppercase;
   }
 
   .equation-body {
@@ -45,16 +57,13 @@ const equationLabel = number !== undefined ? `Equation ${number}` : 'Display equ
   }
 
   .equation-body:focus-visible {
-    border-radius: 0.25rem;
+    border-radius: 0.1rem;
     outline: 2px solid var(--data-structure, var(--accent));
     outline-offset: 2px;
   }
 
   .equation-number {
-    padding: 0.2rem 0.4rem;
-    border: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 20%, var(--rule));
-    border-radius: 999px;
-    background: var(--surface, var(--bg));
+    padding-left: 0.4rem;
     color: var(--fg-muted);
     font-family: var(--font-mono);
     font-size: 0.72rem;
@@ -78,5 +87,6 @@ const equationLabel = number !== undefined ? `Equation ${number}` : 'Display equ
     }
 
     .equation-number { justify-self: end; }
+    .equation-label { grid-column: 1; }
   }
 </style>

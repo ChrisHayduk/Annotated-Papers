@@ -27,7 +27,7 @@
   margin: 6rem 0 1.4rem;
   padding: 1.25rem 0 0;
   border-top: 1px solid var(--rule-strong);
-  font-size: clamp(2rem, 3vw, 2.65rem);
+  font-size: clamp(1.85rem, 2.6vw, 2.3rem);
   font-weight: 500;
   letter-spacing: -0.032em;
   line-height: 1.05;
@@ -76,7 +76,7 @@
   padding-left: 0.15rem;
 }
 
-.prose li::marker { color: var(--accent); }
+.prose li::marker { color: var(--fg-muted); }
 
 .prose > blockquote,
 .paper-body > blockquote:not([class]) {
@@ -166,17 +166,21 @@
 .paper-body > .recycle-fig,
 .paper-body > .af2-arch-fig,
 .paper-body > astro-island {
+  position: relative;
+  left: 50%;
   display: block;
   width: min(60rem, calc(100vw - 2rem));
   max-width: none;
-  margin-left: 50%;
+  margin-left: 0;
   transform: translateX(-50%);
 }
 
 .paper-body > .paper-figure {
+  position: relative;
+  left: 50%;
   width: min(50rem, calc(100vw - 2rem));
   max-width: none;
-  margin-left: 50%;
+  margin-left: 0;
   transform: translateX(-50%);
 }
 
@@ -184,9 +188,9 @@
 .paper-body astro-island > figure[class*="-root "] {
   margin-block: 2.4rem;
   border-color: var(--rule-strong);
-  border-radius: 0.65rem;
+  border-radius: 0.25rem;
   background: var(--surface);
-  box-shadow: 0 1px 0 color-mix(in oklab, var(--surface-strong) 70%, transparent), var(--shadow-float);
+  box-shadow: none;
 }
 
 .paper-body astro-island button,
@@ -212,7 +216,7 @@
   }
 }
 
-@media (min-width: 1260px) {
+@media (min-width: 1200px) {
   .paper-body > .snippet { width: min(54rem, calc(100vw - 36rem)); }
   .paper-body > .evo-fig,
   .paper-body > .recycle-fig,
@@ -248,7 +252,7 @@
 
   .paper-body astro-island > figure[class$="-root"],
   .paper-body astro-island > figure[class*="-root "] {
-    border-radius: 0.45rem;
+    border-radius: 0.2rem;
     box-shadow: none;
   }
 }

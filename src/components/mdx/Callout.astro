@@ -7,16 +7,15 @@ interface Props {
 const { variant = 'info', title } = Astro.props;
 
 const labels: Record<Variant, string> = {
-  info: 'Key idea',
+  info: 'Note',
   warning: 'Caution',
   aside: 'Context',
-  'math-hint': 'Mathematical intuition',
+  'math-hint': 'Math note',
 };
 const label = labels[variant];
 ---
 
 <aside class="callout" data-variant={variant} aria-label={title ?? label}>
-  <div class="callout-rail" aria-hidden="true"></div>
   <div class="callout-heading">
     <span class="callout-label">{label}</span>
     {title && <strong class="callout-title">{title}</strong>}
@@ -27,59 +26,45 @@ const label = labels[variant];
 <style>
   .callout {
     --callout-color: var(--data-msa, var(--accent));
-    --callout-tint: color-mix(in oklab, var(--callout-color) 8%, transparent);
-    position: relative;
-    margin: 1.5rem 0;
-    padding: 1.05rem 1.15rem 1.1rem 1.35rem;
-    overflow: hidden;
-    border: 1px solid color-mix(in oklab, var(--callout-color) 28%, var(--rule));
-    border-radius: 0.75rem;
-    background: linear-gradient(120deg, var(--callout-tint), transparent 68%), var(--surface, var(--bg));
-    box-shadow: 0 0.55rem 1.8rem color-mix(in oklab, var(--fg) 4%, transparent);
+    margin: 1.4rem 0;
+    padding: 0.85rem 1rem;
+    border-block: 1px solid var(--rule);
+    border-left: 2px solid var(--callout-color);
+    background: color-mix(in oklab, var(--callout-color) 4%, transparent);
   }
 
   .callout[data-variant='warning'] {
     --callout-color: var(--accent);
-    --callout-tint: color-mix(in oklab, var(--accent) 10%, transparent);
   }
 
   .callout[data-variant='aside'] {
     --callout-color: var(--fg-muted);
-    --callout-tint: color-mix(in oklab, var(--fg-muted) 7%, transparent);
   }
 
   .callout[data-variant='math-hint'] {
     --callout-color: var(--data-structure, var(--accent));
-    --callout-tint: color-mix(in oklab, var(--data-structure, var(--accent)) 9%, transparent);
-  }
-
-  .callout-rail {
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 0.25rem;
-    background: linear-gradient(to bottom, var(--callout-color), color-mix(in oklab, var(--callout-color) 22%, transparent));
   }
 
   .callout-heading {
     display: grid;
-    gap: 0.35rem;
-    margin-bottom: 0.65rem;
+    gap: 0.3rem;
+    margin-bottom: 0.5rem;
     font-family: var(--font-sans);
   }
 
   .callout-label {
     color: var(--callout-color);
-    font-size: 0.67rem;
-    font-weight: 780;
-    letter-spacing: 0.12em;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     line-height: 1;
     text-transform: uppercase;
   }
 
   .callout-title {
     color: var(--fg);
-    font-size: 0.95rem;
-    font-weight: 680;
+    font-size: 0.92rem;
+    font-weight: 650;
     line-height: 1.3;
   }
 
@@ -91,6 +76,6 @@ const label = labels[variant];
   :global(.callout-body > :last-child) { margin-bottom: 0; }
 
   @media (max-width: 640px) {
-    .callout { padding: 0.95rem 0.95rem 1rem 1.15rem; }
+    .callout { padding: 0.8rem 0.85rem; }
   }
 </style>

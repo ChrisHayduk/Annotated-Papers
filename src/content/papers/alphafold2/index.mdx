@@ -1,7 +1,7 @@
 ---
 slug: alphafold2
 title: The Annotated AlphaFold2
-subtitle: A line-by-line walkthrough of Jumper et al. 2021, with a minimal PyTorch implementation you can actually run.
+subtitle: A detailed walkthrough of Jumper et al. 2021, with a compact PyTorch implementation.
 authors:
   - John Jumper
   - Richard Evans
@@ -12,7 +12,7 @@ doi: "10.1038/s41586-021-03819-2"
 venue: Nature
 publishedDate: 2026-04-21
 tags: [structural-biology, deep-learning, attention, geometry]
-description: An annotated walkthrough of AlphaFold2 — Evoformer, Invariant Point Attention, FAPE, and a minimal PyTorch reference implementation you can run.
+description: A detailed annotation of AlphaFold2 covering the Evoformer, Invariant Point Attention, FAPE, and a compact PyTorch reference implementation.
 readingTimeMinutes: 90
 chapterCount: 16
 codeSnippetCount: 37
@@ -45,50 +45,31 @@ import EvoformerDiagram from '../../../components/mdx/EvoformerDiagram.astro';
 import AF2ArchitectureOverview from '../../../components/mdx/AF2ArchitectureOverview.astro';
 
 <EditorialNote>
-  AI x biology should be one of the most important technical fields of the next
-  decade: the path to better medicines, better diagnostics, better protein and
-  enzyme design, and a much deeper ability to intervene on disease. And yet the
-  path into the field is still strangely illegible. Compared with LLMs, coding
-  agents, or image generation models, biological AI has very few clear
-  walkthroughs, minimal implementations, or pedagogical codebases.
+  This annotation is meant to be read alongside the AlphaFold2 paper and its
+  supplement. AlphaFold2 is a useful starting point for studying modern
+  biological machine learning because its architecture connects sequence data,
+  attention, geometric reasoning, and structure prediction in one system. Many
+  later methods retain some of these components while replacing others.
 
-  This matters because talent flows toward legible fields. When the path into
-  biological AI is harder to see, fewer engineers and researchers enter it,
-  which means fewer projects, fewer companies, less venture funding, and slower
-  downstream medical innovation. This site is my attempt to make that path more
-  legible by pairing important biological AI papers with runnable,
-  paper-aligned implementations.
-
-  The right place to start is AlphaFold2. It was the first major deep learning
-  breakthrough in biology and, in my view, probably the second most important
-  deep learning model in history after GPT-3. It changed structural biology,
-  won the Nobel Prize, and became the root node for much of what followed. Once
-  you understand AlphaFold2, later papers become much easier to place: some
-  modify its MSA machinery, some replace it with protein language models, some
-  extend the structure module, and some broaden the task from structure
-  prediction to sequence-structure-function modeling.
-
-  So I wrote **[minAlphaFold2](https://github.com/ChrisHayduk/minAlphaFold2)**:
-  a pedagogical PyTorch reimplementation designed to be read alongside the
-  62-page AlphaFold2 supplement. Variable names match the paper's notation,
-  comments cite the supplement's algorithm numbers inline, and every major
-  component below is tied back to runnable code. The goal is not production
-  deployment. The goal is understanding.
+  The accompanying **[minAlphaFold2](https://github.com/ChrisHayduk/minAlphaFold2)**
+  repository is a compact PyTorch implementation written for comparison with
+  the paper. Variable names follow the paper's notation, comments point to the
+  relevant supplement algorithms, and the code excerpts below link to a fixed
+  repository commit.
 
   If you'd like to follow along locally, clone the repo and run `pip install -e
   .`. The `scripts/overfit_single_pdb.py` trainer runs on a laptop CPU and
   takes a small protein from random initialization to roughly 2 Å Cα RMSD in
-  about thirty seconds. We'll walk through that exact run in §14. Let's dive
-  in.
+  about thirty seconds. Section 14 walks through that run.
 </EditorialNote>
 
 ## 0. Prelims
 
-Throughout this guide, we'll make use of **minAlphaFold2**, which is a simple, easy-to-read re-implementation of AlphaFold2 that I produced. You can access the repo here: https://github.com/ChrisHayduk/minAlphaFold2
+Throughout this guide, we'll use **minAlphaFold2**, a compact reimplementation of AlphaFold2 in PyTorch. The repository is available at https://github.com/ChrisHayduk/minAlphaFold2.
 
-The goal of minAlphaFold2 is to make AlphaFold2 simple and legible. The full DeepMind implementation is a production-oriented JAX codebase with tons of bells and whistles that make it extremely confusing to dig through. On the other hand, minAlphaFold2 is a much smaller pure-PyTorch implementation written specifically to be read against the paper. Every design decision in the repo follows from that North Star:
+The DeepMind implementation is a full research codebase with the supporting features required for training and inference. minAlphaFold2 has a narrower purpose: it keeps the central operations in a smaller codebase and makes their correspondence with the paper explicit.
 
-**Variable names follow the paper exactly.** `m` is the MSA representation, with shape $(s, r, c_m)$, where $s$ is the number of sequences, $r$ is the number of residues, and $c_m$ is the channel dimension. `z` is the pair representation, with shape $(r, r, c_z)$. `s_i` is the single representation in the Structure Module. `T_i` is a rigid frame. If you have the AF2 paper and supplement open, you should be able to jump back and forth between the papers and the code with no cognitive tax, 
+**Variable names follow the paper.** `m` is the MSA representation, with shape $(s, r, c_m)$, where $s$ is the number of sequences, $r$ is the number of residues, and $c_m$ is the channel dimension. `z` is the pair representation, with shape $(r, r, c_z)$. `s_i` is the single representation in the Structure Module. `T_i` is a rigid frame. This makes it easier to compare the implementation with the paper and supplement.
 
 **Algorithms are annotated inline.** Every major class and function in minAlphaFold2 cites the supplement algorithm it implements. Comments like `# Algorithm 7` appear right above the relevant forward method, allowing you to reference the description and pseudocode from the paper while reading the code. When I say "Algorithm 7" below, you can grep for it in the repo to find the corresponding code. Shapes are typically asserted throughout the forward pass, and the tests exercise those assertions end-to-end.
 
@@ -102,7 +83,7 @@ The walkthrough below will mostly stay at the level of the architecture, but whe
 
 ## 1. Background
 
-AlphaFold2 was not the first deep-learning approach to protein structure prediction, but it was groundbreaking because it was the first deep learning system to really *work*. It produced structures that were far more accurate than any other existing computational methods, approaching the accuracy levels of experimental structure determination for a large fraction of proteins. To understand why it worked, we need to start with the biology rather than with the architecture, because the architecture only makes sense once you understand the particular statistical structure the model is exploiting.
+AlphaFold2 was not the first deep-learning approach to protein structure prediction, but its CASP14 results represented a large improvement over prior computational methods. For many targets, its predictions approached the accuracy of experimentally determined structures. Understanding the architecture first requires some biological context, particularly the relationship between sequence, evolution, and structure.
 
 ### 1.1 What are proteins
 
@@ -115,14 +96,14 @@ The functions that a protein takes on (e.g., whether it acts as a receptor attac
 <Figure
   src="/images/alphafold2/lactase.jpeg"
   alt="An image of the lactase protein"
-  caption="The lactase protein - this is what breaks down lactose into simpler sugars, allowing you to process dairy!"
+  caption="Lactase, the enzyme that breaks lactose into simpler sugars."
 />
 
 Now, if proteins are so important, it may be natural to ask "where do they come from?" And herein lies the central role of DNA in living organisms.
 
 It is a common cliché to hear that DNA is the system of record for an organism, or the set of instructions for life. But it is less often said exactly *what* instructions DNA is providing. 
 
-As it turns out, DNA is essentially a set of instructions for making proteins! The role of DNA is to tell your cell what proteins to make, when to make them, and in what quantities to make them. In fact, there is a clear mapping between DNA and proteins - if you remember your biology, you'll remember that DNA is made up of base pairs (represented by the letters ACTG in a long string). Chunks of three of these base pairs, referred to as "codons", are translated by the ribosomes in your cells into amino acids. So much of what your body does is converting strings of DNA base pair sequences into strings of amino acid sequences.
+DNA encodes instructions for making proteins. It influences which proteins a cell produces, when they are produced, and in what quantities. DNA is represented as a sequence of bases (A, C, T, and G); groups of three bases, called codons, are translated by ribosomes into amino acids. In this way, nucleotide sequences specify amino-acid sequences.
 
 <Figure
   src="/images/alphafold2/dna-rna-protein.png"
@@ -150,7 +131,7 @@ In practice, determining a protein's amino acid sequence is much easier, faster,
   Prize followed in 1972.
 </Sidenote>
 
-The **protein folding problem** is hard for the reason Cyrus Levinthal pointed out in 1969 - a sequence of length 100 has something like $3^{100}$ possible conformations if each residue has three rotational states. The search space is so large that it is impossible to brute force, regardless of any realistically conceivable amount of compute thrown at it. And yet proteins fold on millisecond timescales inside cells, reliably and reproducibly! 
+The **protein folding problem** is hard for the reason Cyrus Levinthal pointed out in 1969: a sequence of length 100 has something like $3^{100}$ possible conformations if each residue has three rotational states. The search space is too large for brute-force enumeration, yet proteins fold reliably on biological timescales.
 
 The only way this can happen is if the energy landscape is highly biased. Rather than sample uniformly from all possible conformations, proteins are being funneled by the physics of their interactions toward a small set of low-energy structures.
 
@@ -184,7 +165,7 @@ From an MSA, you can infer a surprising amount. Column variation tells you which
 
 Correlated columns tell you which residues are coupled, which is often the signature of contact in 3D. This is why AlphaFold2 treats the MSA as a first-class input rather than as a side feature - these coupled residues give the model a strong starting point to "guess" which residues should be next to each other in the 3D structure.
 
-The claim that co-evolution equals contact deserves to be seen rather than asserted because it forms part of the core for why AlphaFold works and is critical to understanding its architectural choices. The widget below lays out an MSA of about 2,000 serine proteases (Pfam PF00089, aligned with MAFFT), the standard contact-prediction heatmap (top-L coupled pairs in red vs. top-L real contacts in blue — the same evaluation format DCA papers use), and the real bovine β-trypsin structure (2PTN), all linked together. Click any cell, or pick a preset below, and the corresponding pair lights up in all three panels. Bright red cells are coupling predictions that landed on a true contact; faded red cells are false positives. The signal here genuinely useful! Roughly a quarter of the top-L predictions are real contacts, several multiples of the random baseline. That's what AlphaFold2 inherits as raw material and sharpens with the Evoformer.
+The relationship between co-evolution and spatial contact is important to AlphaFold2's architectural choices. The widget below links an MSA of about 2,000 serine proteases (Pfam PF00089, aligned with MAFFT), a standard contact-prediction heatmap (top-L coupled pairs in red and top-L observed contacts in blue), and the bovine β-trypsin structure (2PTN). Select a cell or preset to highlight the same residue pair in all three panels. Bright red cells are coupling predictions that coincide with an observed contact; faded red cells are false positives. Roughly a quarter of the top-L predictions are contacts, several times the random baseline. The Evoformer begins with this kind of evolutionary signal and refines it.
 
 <CoevolutionViewer client:visible />
 
@@ -234,7 +215,7 @@ For §§1–9, we mostly won't need to touch frames. They will show up properly 
 
 ### 1.6 What AlphaFold2 changed
 
-Before diving into the implementation, it is useful to be explicit about what was actually new. The rough outline of a contact-prediction-plus-folding pipeline had existed for years: run an MSA, extract co-evolution signals, predict a residue-residue contact map, then fold the protein through fragment assembly or distance-based minimization. AlphaFold1 was already doing something in this family. AlphaFold2 changed the game by adding the following:
+Before turning to the implementation, it is useful to identify what was new. The rough outline of a contact-prediction-plus-folding pipeline had existed for years: run an MSA, extract co-evolution signals, predict a residue-residue contact map, then fold the protein through fragment assembly or distance-based minimization. AlphaFold1 was already doing something in this family. AlphaFold2 introduced the following changes:
 
 1. **End-to-end training.** No separate "predict contacts, then fold" pipeline. The entire system, from MSA input to atom coordinates, is one computation graph with one loss.
 2. **The Evoformer.** A transformer-style stack that cross-attends between the MSA representation and the pair representation, letting each update the other over 48 blocks.
@@ -257,7 +238,7 @@ You can think of $m$ as "what we know about each residue, as seen through evolut
 
 ### 2.1 Building the features
 
-The feature builders that turn raw inputs — an integer-encoded sequence, a stack of aligned MSA sequences, and a set of template structures — into embedding-ready tensors live in <CodeRef file="minalphafold/data.py" symbol="build_target_feat" />. Most of this is one-hot encoding and concatenation. That may sound boring, but it matters because these feature tensors define what the network is allowed to know. The headliners are:
+The feature builders that turn raw inputs — an integer-encoded sequence, a stack of aligned MSA sequences, and a set of template structures — into embedding-ready tensors live in <CodeRef file="minalphafold/data.py" symbol="build_target_feat" />. Most of this is one-hot encoding and concatenation, but these tensors define what information the network receives. The main features are:
 
 - <CodeRef file="minalphafold/data.py" symbol="build_target_feat" /> takes the target integer-encoded sequence and produces a per-residue feature vector: a one-hot over the 21 amino-acid types (20 + unknown), plus a per-residue "deletion value" and a few binary flags. Dimension 22.
 - <CodeRef file="minalphafold/data.py" symbol="build_msa_feat" /> takes the full MSA and produces a $(s, r, 49)$ tensor — for each sequence and each residue, a one-hot over 23 MSA tokens (the 20 amino acids, plus gap, mask, and unknown), a cluster profile averaged across the sequences in that cluster, plus features recording which residues had gap deletions and how many. This is where evolutionary information enters the model.
@@ -320,7 +301,7 @@ where $q^h$ and $k^h$ are query and key projections of $m$ (sequence $s$, residu
 
 <Snippet file="minalphafold/evoformer.py" symbol="MSARowAttentionWithPairBias" />
 
-Here is the architectural trick: in the main Evoformer stack, the pair representation enters the MSA stack through this bias. That is the communication channel from $z$ back into $m$. Without the bias, each row of the MSA would be processed mostly on its own terms, and the model would have a much weaker way to use current pairwise beliefs to guide residue-level attention. With the bias, every head gets a per-pair signal saying, in effect, "pay attention to positions $i$ and $j$ together in proportion to what we currently believe about their relationship." As the Evoformer iterates and $z$ accumulates structural information through earlier outer product mean updates, triangle updates, and recycling, the bias becomes more informative, and row attention becomes progressively more structure-aware.
+In the main Evoformer stack, the pair representation enters the MSA stack through this bias. That is the communication channel from $z$ back into $m$. Without the bias, each row of the MSA would be processed mostly on its own terms, and the model would have a much weaker way to use current pairwise beliefs to guide residue-level attention. With the bias, every head gets a per-pair signal that adjusts attention between positions $i$ and $j$ according to the current pair representation. As the Evoformer iterates and $z$ accumulates structural information through outer product mean updates, triangle updates, and recycling, the bias becomes more informative and row attention becomes progressively more structure-aware.
 
 <EditorialNote>
   The gating term, a sigmoid on a learned linear projection, matters too,
@@ -539,7 +520,7 @@ Two details matter for how this trains.
 
 Everything we have done so far — input embedding, the Evoformer, and recycling — has been aimed at producing two useful representations: a pair representation $z$ rich with structural information, and a single representation $s_i$ for each residue of the target sequence. But none of this is yet a protein structure. The model still needs to place atoms in 3D space. The Structure Module is where that happens.
 
-It does this in a way that is genuinely different from the Evoformer. There is no generic self-attention over abstract sequence tensors here. Instead, the core object is the **rigid frame**, a local coordinate system attached to each residue. The attention weights and coordinate updates are constructed to respect the fact that proteins live in 3D space and do not care how we orient the global axes. That constraint, SE(3) equivariance/invariance depending on the object being discussed, is what gives the Structure Module its distinctive shape.
+This differs from the Evoformer. There is no generic self-attention over abstract sequence tensors here. Instead, the core object is the **rigid frame**, a local coordinate system attached to each residue. The attention weights and coordinate updates are constructed so that changing the global orientation of the protein does not change the underlying geometry. That SE(3) constraint determines the form of the Structure Module.
 
 The module runs for 8 shared-weight iterations. Each iteration performs invariant point attention, a transition MLP, a backbone update, and all-atom coordinate construction. We'll build up to the full loop in §10e; first, we need to get the geometry straight.
 
@@ -583,7 +564,7 @@ The `backbone_frames` helper just calls `rigid_frame_from_three_points` in a loo
 
 ### 10b. Invariant Point Attention
 
-Invariant Point Attention is the signature innovation of the Structure Module. Built on top of rigid frames, it defines a three-term attention score that is invariant to any global rigid motion of the input. This is not merely a soft inductive bias. It is an algebraic property of the operation. Rotate or translate the whole protein in space, and the IPA attention scores are unchanged.
+Invariant Point Attention is the central operation in the Structure Module. Built on top of rigid frames, it defines a three-term attention score that is invariant to any global rigid motion of the input. This is an algebraic property of the operation: rotating or translating the whole protein leaves the IPA attention scores unchanged.
 
 The score between a query residue $i$ and a key residue $j$ for head $h$ looks like:
 
@@ -624,14 +605,10 @@ Three things to look for as you read. First, the linear projections fall into th
 The output is more elaborate than in standard attention. IPA returns (1) a weighted sum of scalar values, which is the regular attention output; (2) a weighted sum of value points, giving a point-cloud-like output with one 3D vector per head; and (3) scalar features derived from the attention-weighted norms of those value points. These get concatenated and projected back into the single representation $s_i$. In other words, IPA returns scalar information and geometric information at the same time.
 
 <EditorialNote>
-  IPA is genuinely new. There were attention variants that operated on graphs
-  or respected symmetries before AlphaFold2, but IPA's particular trick —
-  attention scores as a learnable mixture of scalar, pair-bias, and
-  3D-point-distance terms, with the point-distance term made invariant by
-  local frames — was one of AF2's major architectural contributions. You can
-  see its influence in many later structure-prediction systems and
-  reimplementations. When you see geometry-aware attention in this literature,
-  IPA is one of the ancestors.
+  IPA combines scalar attention, pair bias, and distances between 3D points in
+  local residue frames. This construction was one of AlphaFold2's main
+  architectural contributions and influenced later geometry-aware attention
+  mechanisms in structure-prediction systems.
 </EditorialNote>
 
 ### 10c. Backbone update
@@ -640,7 +617,7 @@ IPA and its transition MLP produce an updated single representation $s_i$ for ea
 
 <Snippet file="minalphafold/structure_module.py" symbol="BackboneUpdate" />
 
-The quaternion construction is the clever bit. Rather than projecting $s_i$ to four scalars $(w, x, y, z)$, AlphaFold2 projects to three scalars $(b, c, d)$ and forms $q = (1, b, c, d)$. Why? Because at initialization, the projection is near zero, so $(b, c, d) \approx (0, 0, 0)$ and $q \approx (1, 0, 0, 0)$, the identity quaternion. Hence, the update is near-identity at initialization. Without this trick, the model would begin by predicting arbitrary rotations and would have to learn its way back to stability. With it, the model starts from "no change" and learns corrections.
+Rather than projecting $s_i$ to four scalars $(w, x, y, z)$, AlphaFold2 projects to three scalars $(b, c, d)$ and forms $q = (1, b, c, d)$. At initialization, the projection is near zero, so $(b, c, d) \approx (0, 0, 0)$ and $q \approx (1, 0, 0, 0)$, the identity quaternion. The update therefore begins near the identity rotation and learns corrections from that stable starting point.
 
 Read that carefully — the backbone update is additive in the space of *rotations*, not in the space of quaternion components. The composition $T_i \leftarrow T_i \cdot (R(q), t_{\text{pred}})$ multiplies rotations (because $\mathrm{SO}(3)$ isn't a vector space) and adds translations. The QuaternionFrame widget from §10a lets you see concretely what small perturbations in $(b, c, d)$ do to the rotation matrix — set $(b, c, d)$ to small values and watch the rotation stay close to identity.
 
@@ -837,7 +814,7 @@ During fine-tuning, the experimentally-resolved and structural-violation losses 
 
 ## 13. Training
 
-The training recipe is where the ambition of AlphaFold2 becomes most obvious. The architecture and loss are one thing; making them converge at scale on messy biological data is another. minAlphaFold2 covers most of the training mechanics we need for a faithful pedagogical implementation — cropping, recycling sampling, feature construction, collation, gradient checkpointing — but it skips one major piece: self-distillation. We will call that out honestly.
+The training recipe combines several practical mechanisms required to train the architecture at scale on biological data. minAlphaFold2 covers cropping, recycling sampling, feature construction, collation, and gradient checkpointing, but omits one major component: self-distillation.
 
 ### 13.1 Feature engineering
 
@@ -985,7 +962,7 @@ It will write its own PDBs and metrics to `artifacts/overfit_single_pdb/1crn/`. 
 
 ## 15. What AlphaFold2 left unsolved
 
-AlphaFold2 changed structural biology, and like most field-changing results, it also clarified the next set of problems. The paper largely solved monomeric protein structure prediction for proteins with reasonable MSA coverage. That turned out to be an enormous class of proteins. But real biology cares about many things that are not fully captured by "predict the most likely monomer structure from a sequence":
+AlphaFold2 substantially improved monomeric protein structure prediction for proteins with reasonable MSA coverage. It also left several important problems outside its original scope:
 
 **Protein complexes.** Proteins rarely act alone. They form complexes with other proteins, DNA, RNA, small molecules, ions, and membranes. AF2 was built primarily around monomeric protein structure prediction. **AlphaFold-Multimer** extended the system to complexes, and **AlphaFold3** went further with a redesigned architecture, diffusion-based output, and a scope that includes nucleic acids, ligands, and post-translational modifications.
 
@@ -993,26 +970,15 @@ AlphaFold2 changed structural biology, and like most field-changing results, it 
 
 **Design.** Structure prediction is the forward problem: sequence → structure. The inverse problem, "give me a sequence that folds into this structure," is protein design. **RoseTTAFold Diffusion**, **ProteinMPNN**, and **AlphaProteo** all live in or adjacent to this inverse space. They often use AF2-descended ideas to evaluate designs, but the generative problem is different.
 
-**Language-model shortcuts.** Perhaps the most interesting follow-up is the shift toward models that replace the MSA entirely. **ESMFold** uses a pretrained protein language model in place of the MSA pipeline, with the implicit claim that a large enough protein transformer has already learned many of the co-evolutionary patterns the MSA was meant to surface. **ESM3** goes further by training jointly on sequence, structure, and function, positioning itself as a more general biological foundation model rather than a structure-prediction specialist. I've written a [multi-part primer on protein language models](https://chrishayduk.com) that traces this arc from AF2 through ESM3 in more detail.
+**Protein language models.** Some later models replace the MSA with representations from a pretrained protein language model. **ESMFold** follows this approach, relying on a protein transformer to encode sequence patterns that the MSA pipeline would otherwise supply. **ESM3** trains jointly on sequence, structure, and function. A [multi-part primer on protein language models](https://chrishayduk.com) discusses this line of work in more detail.
 
-**Compute and inference cost.** AF2's training run was enormous, and its per-sequence inference cost is not trivial either, especially when MSA search is included. A lot of real-world work in drug discovery, enzyme engineering, and synthetic biology benefits from cheaper, faster predictions. ESMFold, distillation-based approaches, and newer compute-optimized architectures are all responses to this constraint.
+**Compute and inference cost.** AlphaFold2 is expensive to train and its inference pipeline includes the additional cost of MSA search. ESMFold, distillation-based approaches, and newer compute-optimized architectures address this constraint in different ways.
 
 <EditorialNote>
-  One of the more interesting meta-observations about this space is how many
-  of AF2's architectural choices turned out to be load-bearing and how many
-  turned out to be replaceable. The triangle updates, IPA-style geometric
-  reasoning, FAPE-like losses, and recycling all proved extremely influential.
-  The specific MSA pipeline is already less central than it looked in 2021.
-  The Structure Module has been rethought in diffusion-based successors. The
-  training recipe has also been reworked.
-
-  This is useful to keep in mind when reading any landmark paper. Some
-  components become permanent conceptual machinery for the field. Others are
-  historically important because they made the first working system possible,
-  but later get swapped out. AlphaFold2 is especially worth reading because it
-  contains both kinds of idea.
+  Later systems retained triangle updates, geometric reasoning, FAPE-like
+  losses, and recycling, while often changing the MSA pipeline, Structure
+  Module, or training procedure. Distinguishing the reusable ideas from the
+  system-specific choices is one reason to study the architecture in detail.
 </EditorialNote>
 
-— end —
-
-If you've made it this far, thank you for reading! If you found this useful, I write regularly about AI, biology, and adjacent topics at [chrishayduk.com](https://chrishayduk.com). The annotation project will continue from here. ESM-2, ESMFold, ESM-3, and AlphaFold3 are all coming up soon!
+Further notes on machine learning and biology are available at [chrishayduk.com](https://chrishayduk.com).

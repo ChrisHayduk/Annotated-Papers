@@ -26,10 +26,9 @@ const algorithmLabel = `Algorithm ${number}: ${name}`;
     margin: 1.75rem 0;
     padding: 0;
     overflow: hidden;
-    border: 1px solid color-mix(in oklab, var(--data-msa, var(--accent)) 25%, var(--rule));
-    border-radius: 0.8rem;
-    background: var(--surface, color-mix(in oklab, var(--bg) 96%, var(--fg) 4%));
-    box-shadow: 0 0.8rem 2.4rem color-mix(in oklab, var(--fg) 5%, transparent);
+    border: 1px solid var(--rule);
+    border-radius: 0.2rem;
+    background: var(--surface, var(--bg));
     font-family: var(--font-mono);
     font-size: 0.85rem;
     line-height: 1.58;
@@ -42,9 +41,7 @@ const algorithmLabel = `Algorithm ${number}: ${name}`;
     margin: 0;
     padding: 0.78rem 1rem;
     border-bottom: 1px solid var(--rule);
-    background:
-      linear-gradient(100deg, color-mix(in oklab, var(--data-msa, var(--accent)) 10%, transparent), transparent 58%),
-      var(--surface-strong, color-mix(in oklab, var(--bg) 91%, var(--fg) 9%));
+    background: var(--surface-strong, color-mix(in oklab, var(--rule) 24%, transparent));
     font-family: var(--font-sans);
     text-align: left;
   }
@@ -53,8 +50,8 @@ const algorithmLabel = `Algorithm ${number}: ${name}`;
     flex: 0 0 auto;
     color: var(--data-msa, var(--accent));
     font-size: 0.65rem;
-    font-weight: 780;
-    letter-spacing: 0.1em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
     line-height: 1;
     text-transform: uppercase;
   }
@@ -62,7 +59,7 @@ const algorithmLabel = `Algorithm ${number}: ${name}`;
   .algorithm-box figcaption strong {
     color: var(--fg);
     font-size: 0.88rem;
-    font-weight: 680;
+    font-weight: 650;
     line-height: 1.3;
   }
 

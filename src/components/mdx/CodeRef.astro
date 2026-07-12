@@ -28,14 +28,14 @@ const location = `${file}${lines ? `:${lines}` : ''}`;
     display: inline-flex;
     align-items: baseline;
     max-width: 100%;
-    padding: 0.08em 0.32em 0.1em 0.38em;
+    padding: 0.04em 0.16em 0.08em;
     gap: 0.24em;
-    border: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 24%, var(--rule));
-    border-radius: 0.3rem;
-    background: color-mix(in oklab, var(--data-structure, var(--accent)) 6%, transparent);
+    border-bottom: 1px solid color-mix(in oklab, var(--data-structure, var(--accent)) 46%, var(--rule));
+    border-radius: 0.1rem;
+    background: color-mix(in oklab, var(--rule) 25%, transparent);
     color: color-mix(in oklab, var(--fg) 86%, var(--data-structure, var(--accent)));
     text-decoration: none;
-    transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease;
+    transition: border-color 140ms ease, color 140ms ease;
   }
 
   .code-ref code {
@@ -58,8 +58,7 @@ const location = `${file}${lines ? `:${lines}` : ''}`;
   }
 
   .code-ref:hover {
-    border-color: color-mix(in oklab, var(--data-structure, var(--accent)) 68%, var(--rule));
-    background: color-mix(in oklab, var(--data-structure, var(--accent)) 11%, transparent);
+    border-color: var(--data-structure, var(--accent));
     color: var(--fg);
   }
 

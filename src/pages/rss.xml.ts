@@ -6,7 +6,7 @@ export async function GET(context: APIContext) {
   const entries = await getCollection('papers', (e) => !e.data.draft);
   return rss({
     title: 'Annotated Papers by Chris Hayduk',
-    description: 'Line-by-line walkthroughs of research papers worth reading deeply.',
+    description: 'Detailed annotations of research papers, with runnable code and interactive figures.',
     site: context.site ?? 'https://annotated.chrishayduk.com',
     items: entries
       .sort((a, b) => b.data.publishedDate.valueOf() - a.data.publishedDate.valueOf())

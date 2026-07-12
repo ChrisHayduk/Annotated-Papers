@@ -14,24 +14,24 @@
 
 :root {
   color-scheme: light;
-  --canvas: #f1ece3;
-  --bg: #fbf8f1;
-  --surface: #f6f1e8;
+  --canvas: #f3f0e9;
+  --bg: #fffdf8;
+  --surface: #f7f4ed;
   --surface-strong: #ffffff;
   --fg: #1b1916;
   --fg-muted: #6a645b;
   --fg-faint: #766e64;
   --rule: #d9d1c5;
   --rule-strong: #b9afa1;
-  --accent: #8c2f3b;
-  --accent-hover: #71232d;
-  --accent-soft: #f3e3e3;
+  --accent: #7a303a;
+  --accent-hover: #62242d;
+  --accent-soft: #f2e8e7;
   --data-msa: #3e6fa6;
   --data-pair: #a85d3f;
   --data-structure: #2f7b6f;
   --data-loss: #a56a2a;
   --selection: #ead2d5;
-  --shadow-float: 0 20px 55px rgba(54, 42, 27, 0.08);
+  --shadow-float: 0 4px 18px rgba(54, 42, 27, 0.06);
   --header-height: 4rem;
   --focus: #206b99;
 }
@@ -78,9 +78,7 @@ html {
 body {
   margin: 0;
   min-height: 100dvh;
-  background:
-    radial-gradient(circle at 15% 0%, color-mix(in oklab, var(--accent) 5%, transparent), transparent 30rem),
-    var(--canvas);
+  background: var(--canvas);
 }
 
 ::selection {
@@ -147,7 +145,6 @@ samp {
   color: var(--fg);
   font: 600 0.85rem/1 var(--font-sans);
   text-decoration: none;
-  box-shadow: var(--shadow-float);
   transition: transform 140ms ease;
 }
 
@@ -161,8 +158,7 @@ samp {
   top: 0;
   min-height: var(--header-height);
   border-bottom: 1px solid color-mix(in oklab, var(--rule) 88%, transparent);
-  background: color-mix(in oklab, var(--bg) 92%, transparent);
-  backdrop-filter: blur(18px) saturate(1.2);
+  background: var(--bg);
 }
 
 .site-nav-inner {
@@ -251,18 +247,17 @@ samp {
   display: grid;
   place-items: center;
   border: 1px solid var(--rule);
-  border-radius: 999px;
-  background: var(--surface);
+  border-radius: 0.2rem;
+  background: transparent;
   color: var(--fg);
   cursor: pointer;
   font: 600 0.9rem/1 var(--font-sans);
-  transition: border-color 140ms ease, background 140ms ease, transform 140ms ease;
+  transition: border-color 140ms ease, background 140ms ease;
 }
 
 .theme-toggle:hover {
   border-color: var(--rule-strong);
-  background: var(--surface-strong);
-  transform: translateY(-1px);
+  background: var(--surface);
 }
 
 .theme-toggle-sun,
@@ -272,16 +267,13 @@ samp {
 .site-main {
   min-height: calc(100dvh - var(--header-height));
   background: var(--bg);
-  border-inline: 1px solid color-mix(in oklab, var(--rule) 72%, transparent);
-  max-width: 100rem;
-  margin-inline: auto;
 }
 
 .site-footer {
   position: relative;
   z-index: 2;
   border-top: 1px solid var(--rule);
-  background: var(--canvas);
+  background: var(--bg);
 }
 
 .site-footer-inner {
@@ -329,7 +321,7 @@ samp {
   margin: 0;
   color: var(--accent);
   font: 700 0.7rem/1.2 var(--font-sans);
-  letter-spacing: 0.13em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
@@ -342,24 +334,24 @@ samp {
   gap: 0.5rem;
   padding: 0.7rem 1rem;
   border: 1px solid var(--accent);
-  border-radius: 0.3rem;
-  font: 700 0.78rem/1 var(--font-sans);
+  border-radius: 0.18rem;
+  font: 600 0.78rem/1 var(--font-sans);
   text-decoration: none;
-  transition: transform 140ms ease, background 140ms ease, border-color 140ms ease;
+  transition: background 140ms ease, border-color 140ms ease;
 }
 
 .button-primary {
-  background: var(--accent);
+  border-color: var(--fg);
+  background: var(--fg);
   color: #fff;
 }
 
 .dark .button-primary { color: #211718; }
 
 .button-primary:hover {
-  background: var(--accent-hover);
-  border-color: var(--accent-hover);
+  background: color-mix(in oklab, var(--fg) 88%, var(--bg));
+  border-color: var(--fg);
   color: #fff;
-  transform: translateY(-1px);
 }
 
 .button-secondary {
@@ -372,7 +364,6 @@ samp {
   border-color: var(--fg-muted);
   background: var(--surface);
   color: var(--fg);
-  transform: translateY(-1px);
 }
 
 .heading-anchor {
