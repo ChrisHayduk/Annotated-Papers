@@ -1,0 +1,228 @@
+{
+  "artifact": {
+    "byteLength": 1657230,
+    "mediaType": "image/png",
+    "outputPath": "images/alphafold2/lactase-3oba.png",
+    "sha256": "e0116a0da1ee78e162141a61c8c19d253c31a5f160576f661465c09eb644560c"
+  },
+  "createdAt": "2026-09-09T14:15:29.654Z",
+  "provenance": {
+    "canonicalSpec": "{\"autoCrop\":true,\"cropPadding\":100,\"destination\":{\"base\":\"opened-source\",\"collisionPolicy\":\"versioned\",\"kind\":\"workspace\",\"relativePath\":\"images/alphafold2/lactase-3oba.png\"},\"format\":\"png\",\"height\":1800,\"kind\":\"image\",\"outputPath\":\"images/alphafold2/lactase-3oba.png\",\"overwrite\":false,\"scene\":{\"antialiasing\":\"quality\",\"background\":\"#F7F8F3\",\"camera\":{\"clippingRadius\":92.66099656483945,\"fovDegrees\":45,\"mode\":\"perspective\",\"nearClip\":1,\"orientation\":\"current\",\"position\":[10.19286,5.63703,242.918525],\"target\":[10.19286,5.63703,0.783672],\"up\":[0,1,0]},\"clearExisting\":true,\"density\":[],\"layers\":[{\"color\":{\"kind\":\"uniform\",\"value\":\"#24765E\"},\"labels\":false,\"opacity\":1,\"representation\":\"cartoon\",\"target\":{\"expression\":{\"chain\":\"A\",\"kind\":\"chain\",\"objectId\":\"primary\"},\"kind\":\"expression\"},\"visible\":true},{\"color\":{\"kind\":\"uniform\",\"value\":\"#92B571\"},\"labels\":false,\"opacity\":1,\"representation\":\"cartoon\",\"target\":{\"expression\":{\"chain\":\"B\",\"kind\":\"chain\",\"objectId\":\"primary\"},\"kind\":\"expression\"},\"visible\":true},{\"color\":{\"kind\":\"uniform\",\"value\":\"#5B968C\"},\"labels\":false,\"opacity\":1,\"representation\":\"cartoon\",\"target\":{\"expression\":{\"chain\":\"C\",\"kind\":\"chain\",\"objectId\":\"primary\"},\"kind\":\"expression\"},\"visible\":true},{\"color\":{\"kind\":\"uniform\",\"value\":\"#D1AF67\"},\"labels\":false,\"opacity\":1,\"representation\":\"cartoon\",\"target\":{\"expression\":{\"chain\":\"D\",\"kind\":\"chain\",\"objectId\":\"primary\"},\"kind\":\"expression\"},\"visible\":true}],\"lighting\":\"studio\",\"scientificAnnotations\":{\"guides\":[],\"quality\":[],\"symmetry\":[]}},\"transparent\":false,\"width\":2400}",
+    "density": {
+      "initial": [],
+      "sceneTransitions": []
+    },
+    "generatedAt": "2026-09-09T14:15:28.632Z",
+    "output": {
+      "autoCrop": true,
+      "crop": {
+        "applied": false,
+        "empty": false,
+        "height": 1800,
+        "padding": 100,
+        "width": 2400,
+        "x": 0,
+        "y": 0
+      },
+      "format": "png",
+      "height": 1800,
+      "sourceHeight": 1800,
+      "sourceWidth": 2400,
+      "transparent": false,
+      "width": 2400
+    },
+    "renderer": "Mol* 5.11.0",
+    "replay": {
+      "autoCrop": true,
+      "cropPadding": 100,
+      "destination": {
+        "base": "opened-source",
+        "collisionPolicy": "versioned",
+        "kind": "workspace",
+        "relativePath": "images/alphafold2/lactase-3oba.png"
+      },
+      "format": "png",
+      "height": 1800,
+      "kind": "image",
+      "outputPath": "images/alphafold2/lactase-3oba.png",
+      "overwrite": false,
+      "scene": {
+        "antialiasing": "quality",
+        "background": "#F7F8F3",
+        "camera": {
+          "clippingRadius": 92.66099656483945,
+          "fovDegrees": 45,
+          "mode": "perspective",
+          "nearClip": 1,
+          "orientation": "current",
+          "position": [
+            10.19286,
+            5.63703,
+            242.918525
+          ],
+          "target": [
+            10.19286,
+            5.63703,
+            0.783672
+          ],
+          "up": [
+            0,
+            1,
+            0
+          ]
+        },
+        "clearExisting": true,
+        "density": [],
+        "layers": [
+          {
+            "color": {
+              "kind": "uniform",
+              "value": "#24765E"
+            },
+            "labels": false,
+            "opacity": 1,
+            "representation": "cartoon",
+            "target": {
+              "expression": {
+                "chain": "A",
+                "kind": "chain",
+                "objectId": "primary"
+              },
+              "kind": "expression"
+            },
+            "visible": true
+          },
+          {
+            "color": {
+              "kind": "uniform",
+              "value": "#92B571"
+            },
+            "labels": false,
+            "opacity": 1,
+            "representation": "cartoon",
+            "target": {
+              "expression": {
+                "chain": "B",
+                "kind": "chain",
+                "objectId": "primary"
+              },
+              "kind": "expression"
+            },
+            "visible": true
+          },
+          {
+            "color": {
+              "kind": "uniform",
+              "value": "#5B968C"
+            },
+            "labels": false,
+            "opacity": 1,
+            "representation": "cartoon",
+            "target": {
+              "expression": {
+                "chain": "C",
+                "kind": "chain",
+                "objectId": "primary"
+              },
+              "kind": "expression"
+            },
+            "visible": true
+          },
+          {
+            "color": {
+              "kind": "uniform",
+              "value": "#D1AF67"
+            },
+            "labels": false,
+            "opacity": 1,
+            "representation": "cartoon",
+            "target": {
+              "expression": {
+                "chain": "D",
+                "kind": "chain",
+                "objectId": "primary"
+              },
+              "kind": "expression"
+            },
+            "visible": true
+          }
+        ],
+        "lighting": "studio",
+        "scientificAnnotations": {
+          "guides": [],
+          "quality": [],
+          "symmetry": []
+        }
+      },
+      "transparent": false,
+      "width": 2400
+    },
+    "schemaVersion": 1,
+    "source": {
+      "fileName": "3oba.pdb",
+      "name": "3oba.pdb",
+      "resourceUri": "viewer-file://structure-viewer/opened/71098984-c9ac-41cc-b932-154b75159ae2",
+      "sha256": "953ae35c2defaa138ea3d88becfc7989dab5862dc3106b077de3efb2661d1802"
+    },
+    "structureObjects": [
+      {
+        "construction": {
+          "assemblyId": "1",
+          "dynamicBonds": false,
+          "kind": "assembly",
+          "modelIndex": 0
+        },
+        "fileName": "3oba.pdb",
+        "frameCount": 1,
+        "id": "primary",
+        "matrix": [
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1
+        ],
+        "primary": true,
+        "resourceUri": "viewer-file://structure-viewer/opened/71098984-c9ac-41cc-b932-154b75159ae2",
+        "visible": true
+      }
+    ],
+    "encodingDurationMs": 1083,
+    "jobId": "44be8f8b-a393-4d43-a5ee-d594a5b23ecf",
+    "workspacePublication": {
+      "destination": {
+        "base": "opened-source",
+        "relativePath": "images/alphafold2/lactase-3oba.png"
+      },
+      "artifact": {
+        "kind": "render",
+        "mediaType": "image/png"
+      },
+      "output": {
+        "workspacePath": "public/images/alphafold2/lactase-3oba.png"
+      },
+      "plugin": {
+        "name": "structure-viewer",
+        "version": "0.1.80"
+      },
+      "schemaVersion": 1,
+      "source": {
+        "sha256": "953ae35c2defaa138ea3d88becfc7989dab5862dc3106b077de3efb2661d1802",
+        "workspacePath": "public/3oba.pdb"
+      }
+    }
+  },
+  "renderer": "Mol* 5.11.0",
+  "schemaVersion": 1
+}

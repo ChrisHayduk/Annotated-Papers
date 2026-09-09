@@ -4,9 +4,9 @@ import BaseLayout from '../layouts/BaseLayout.astro';
 const aboutJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'AboutPage',
-  name: 'About Annotated Papers',
+  name: 'About Annotated Papers by Chris Hayduk',
   url: new URL('/about', Astro.site).toString(),
-  description: 'The editorial method behind Annotated Papers by Chris Hayduk.',
+  description: 'Explanations of biological AI papers, with PyTorch implementations and interactive figures.',
   author: {
     '@type': 'Person',
     name: 'Chris Hayduk',
@@ -17,109 +17,154 @@ const aboutJsonLd = {
 ---
 <BaseLayout
   title="About — Annotated Papers by Chris Hayduk"
-  description="How Annotated Papers combines research papers, runnable implementations, and interactive figures."
+  description="About Annotated Papers by Chris Hayduk: explanations of biological AI papers, with PyTorch code and interactive figures."
   jsonLd={aboutJsonLd}
 >
   <article class="about-page">
     <header class="about-header">
-      <p class="section-label">About</p>
-      <h1>About Annotated Papers</h1>
-      <p class="about-lede">
-        This site contains detailed annotations of research papers that I have found worth
-        understanding closely. Each annotation combines the source paper, explanatory notes,
-        runnable code, and interactive figures.
-      </p>
+      <div class="about-intro">
+        <p class="eyebrow">About the project</p>
+        <h1>Why I annotate<br /><span>research papers.</span></h1>
+        <p class="about-lede">
+          These notes explain the equations and implementation details in biological AI papers,
+          with code and figures alongside the text.
+        </p>
+        <a class="author-link" href="https://chrishayduk.com" rel="me">
+          <span class="author-monogram" aria-hidden="true">CH</span>
+          <span>A project by <strong>Chris Hayduk</strong></span>
+          <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+      <aside class="reading-note" aria-label="The approach">
+        <p class="eyebrow">In each annotation</p>
+        <ol>
+          <li><span aria-hidden="true">01</span><div><strong>Explanatory notes</strong><p>Architecture, equations, and notation.</p></div></li>
+          <li><span aria-hidden="true">02</span><div><strong>PyTorch code</strong><p>Excerpts from the companion implementation.</p></div></li>
+          <li><span aria-hidden="true">03</span><div><strong>Interactive figures</strong><p>Diagrams and controls for specific mechanisms.</p></div></li>
+        </ol>
+        <p class="reading-note-footer">With references to the paper and source code.</p>
+      </aside>
     </header>
 
     <div class="about-body">
-      <nav class="contents" aria-label="On this page">
-        <p>On this page</p>
+      <nav class="about-contents" aria-label="On this page">
+        <p class="eyebrow">On this page</p>
         <ol>
-          <li><a href="#purpose">Purpose</a></li>
-          <li><a href="#method">Method</a></li>
-          <li><a href="#provenance">Code and provenance</a></li>
-          <li><a href="#current">Current annotation</a></li>
+          <li><a href="#purpose"><span>01</span> Purpose</a></li>
+          <li><a href="#method"><span>02</span> Format</a></li>
+          <li><a href="#provenance"><span>03</span> Source code</a></li>
+          <li><a href="#current"><span>04</span> AlphaFold2</a></li>
+          <li><a href="#practice"><span>05</span> BioTorch</a></li>
         </ol>
       </nav>
 
-      <div class="sections">
+      <div class="about-sections">
         <section id="purpose">
-          <h2>Purpose</h2>
+          <p class="eyebrow">01 / Purpose</p>
+          <h2>The details between the equations</h2>
           <p>
-            Research papers are concise records of new results. They often assume substantial
-            background knowledge and leave implementation details to supplements or codebases.
-            That economy is useful for communicating among specialists, but it can make careful
-            study unnecessarily difficult.
+            Papers describe new results for readers who already know the field. They often leave
+            intermediate calculations implicit, and put implementation details in a supplement or
+            a separate codebase. That can make a model difficult to reconstruct from the paper alone.
           </p>
           <p>
-            These annotations slow the reading process down. The goal is not to replace the
-            original paper or reduce it to a summary, but to make the paper easier to work through
-            in full. The format follows the example of
-            <a href="https://nlp.seas.harvard.edu/annotated-transformer/">The Annotated Transformer</a>.
+            I use this site to explain those details: what an equation computes, which dimensions
+            a tensor has, and how an operation is implemented. The original paper remains the
+            reference for the research; the annotation provides additional explanation and code.
+          </p>
+          <p>
+            The format is inspired by
+            <a href="https://nlp.seas.harvard.edu/annotated-transformer/">The Annotated Transformer</a>,
+            which presents an implementation alongside an explanation of the paper.
           </p>
         </section>
 
         <section id="method">
-          <h2>Method</h2>
-          <p>Each annotation is organized around three related forms of evidence:</p>
+          <p class="eyebrow">02 / Format</p>
+          <h2>How the annotations are organized</h2>
+          <p>
+            Each annotation is divided into sections for the model's components. The table of contents
+            links to individual sections, and the notes refer to the relevant equations and code.
+          </p>
           <ol class="method-list">
             <li>
-              <h3>The paper</h3>
-              <p>
-                The argument, equations, and architecture are explained in sequence. Notation is
-                kept close to the source so readers can move between the annotation and the paper.
-              </p>
+              <div class="method-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M6 3h9l3 3v15H6V3Z" /><path d="M14 3v5h4M9 12h6M9 16h6" /></svg>
+              </div>
+              <div><h3>Paper and notation</h3><p>
+                The text explains the architecture and equations using notation close to the
+                original. References let you compare the explanation with the paper and supplement.
+              </p></div>
             </li>
             <li>
-              <h3>The implementation</h3>
-              <p>
-                Code excerpts come from real, runnable reimplementations rather than pseudocode.
-                Variable names follow the paper, algorithm numbers are cited inline, and tensor
-                shapes are checked throughout the code.
-              </p>
+              <div class="method-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none"><path d="m8 6-5 6 5 6m8-12 5 6-5 6M14 4l-4 16" /></svg>
+              </div>
+              <div><h3>Implementation</h3><p>
+                Code excerpts come from a runnable implementation. They include tensor shapes
+                and variables corresponding to the paper's notation. The repository contains the
+                complete source.
+              </p></div>
             </li>
             <li>
-              <h3>The figures</h3>
-              <p>
-                Interactive figures are used where manipulating a mechanism directly is more
-                informative than another paragraph of description.
-              </p>
+              <div class="method-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M5 3v18M12 3v18M19 3v18" /><path d="M2 8h6v4H2zM9 14h6v4H9zM16 6h6v4h-6z" fill="currentColor" /></svg>
+              </div>
+              <div><h3>Interactive figures</h3><p>
+                Some sections include figures with adjustable views or parameters, so you can
+                inspect the operation described in the text.
+              </p></div>
             </li>
           </ol>
         </section>
 
         <section id="provenance">
-          <h2>Code and provenance</h2>
+          <p class="eyebrow">03 / Source code</p>
+          <h2>Code and reproducibility</h2>
           <p>
-            The implementations are written for pedagogical clarity and include unit and
-            integration tests. Each annotation pins its reference repository to a specific commit.
-            This makes it possible to inspect the exact version used by the site, clone it, and run
-            the examples locally.
+            The companion implementations prioritize readable code and include unit and
+            integration tests. Each annotation refers to a specific repository commit, so the
+            excerpts can be checked against the exact version of the source.
+          </p>
+          <p>
+            You can clone the repository to run the implementation locally. The repository's
+            documentation describes its setup and scope.
           </p>
         </section>
 
         <section id="current" class="current-paper">
-          <p class="section-label">Current annotation</p>
+          <p class="eyebrow">04 / Current annotation</p>
           <h2>The Annotated AlphaFold2</h2>
           <p>
             The first annotation covers AlphaFold2, including the Evoformer, Invariant Point
-            Attention, FAPE, and the Structure Module. It is paired with
-            <a href="https://github.com/ChrisHayduk/minAlphaFold2" target="_blank" rel="noopener">minAlphaFold2</a>,
-            a roughly 8,000-line PyTorch implementation of about 95% of the paper.
+            Attention, the Structure Module, and frame-aligned point error (FAPE). Code excerpts
+            come from the companion PyTorch implementation,
+            <a href="https://github.com/ChrisHayduk/minAlphaFold2" target="_blank" rel="noopener">minAlphaFold2</a>.
           </p>
           <div class="current-links">
-            <a class="primary-link" href="/alphafold2">Read the annotation <span aria-hidden="true">→</span></a>
-            <a class="secondary-link" href="https://github.com/ChrisHayduk/minAlphaFold2" target="_blank" rel="noopener">
+            <a class="button-primary" href="/alphafold2">Read the annotation <span aria-hidden="true">→</span></a>
+            <a class="button-secondary" href="https://github.com/ChrisHayduk/minAlphaFold2" target="_blank" rel="noopener">
               View the repository <span aria-hidden="true">↗</span>
             </a>
           </div>
         </section>
 
-        <footer class="author-note">
+        <section id="practice" class="practice-note">
+          <p class="eyebrow">05 / Related project</p>
+          <h2>PyTorch exercises on BioTorch</h2>
           <p>
-            Annotated and implemented by <a href="https://chrishayduk.com" rel="me">Chris Hayduk</a>.
-            More of my writing is available at <a href="https://chrishayduk.com" rel="me">chrishayduk.com</a>.
+            I also maintain BioTorch, a site with coding exercises drawn from biological AI
+            models. Each problem asks you to implement a specific operation in PyTorch, with
+            tensor shapes, examples, and tests.
           </p>
+          <a class="practice-link" href="https://biotorch.chrishayduk.com">
+            Browse BioTorch exercises <span aria-hidden="true">↗</span>
+          </a>
+        </section>
+
+        <footer class="author-note">
+          <p>Annotated Papers by <a href="https://chrishayduk.com" rel="me">Chris Hayduk</a>.</p>
+          <a href="/">Back to the papers <span aria-hidden="true">↑</span></a>
         </footer>
       </div>
     </div>
@@ -128,226 +173,158 @@ const aboutJsonLd = {
 
 <style>
   .about-page {
-    width: min(100% - 3rem, 70rem);
+    width: min(100% - 4rem, 76rem);
     margin-inline: auto;
   }
 
-  .section-label {
-    margin: 0 0 1rem;
-    color: var(--accent);
-    font-family: var(--font-sans);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
   .about-header {
-    max-width: 51rem;
-    padding-block: clamp(4.5rem, 9vw, 7.5rem);
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(17rem, 0.8fr);
+    align-items: center;
+    gap: clamp(2.5rem, 6vw, 6rem);
+    padding-block: clamp(4rem, 8vw, 7rem);
   }
 
+  .about-intro > .eyebrow { margin-bottom: 1.25rem; }
   .about-header h1 {
     margin: 0;
-    font-size: clamp(2.8rem, 5.5vw, 4.25rem);
-    font-weight: 500;
-    letter-spacing: -0.04em;
-    line-height: 1.05;
+    font-size: clamp(2.7rem, 4.8vw, 4.2rem);
+    font-weight: 600;
+    letter-spacing: -0.055em;
+    line-height: 1.08;
   }
-
+  .about-header h1 span { color: var(--accent); }
   .about-lede {
-    max-width: 44rem;
-    margin: 1.5rem 0 0;
+    max-width: 37rem;
+    margin: 1.65rem 0 0;
     color: var(--fg-muted);
-    font-size: clamp(1.15rem, 2vw, 1.35rem);
-    line-height: 1.6;
+    font-size: clamp(1.05rem, 1.5vw, 1.17rem);
+    line-height: 1.8;
   }
 
-  .about-body {
-    display: grid;
-    grid-template-columns: 12rem minmax(0, 42rem);
-    justify-content: space-between;
-    gap: clamp(3rem, 9vw, 8rem);
-    padding-block: clamp(3.5rem, 7vw, 6rem);
-    border-top: 1px solid var(--rule-strong);
-  }
-
-  .contents {
-    display: block;
-    align-self: start;
-    position: sticky;
-    top: calc(var(--header-height) + 2rem);
-    font-family: var(--font-sans);
-  }
-
-  .contents > p {
-    margin: 0 0 0.9rem;
-    color: var(--fg-muted);
-    font-size: 0.68rem;
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .contents ol {
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .contents li + li { margin-top: 0.55rem; }
-
-  .contents a {
+  .author-link {
+    display: inline-flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.7rem;
+    margin-top: 1.75rem;
     color: var(--fg-muted);
     font-size: 0.8rem;
     text-decoration: none;
   }
-
-  .contents a:hover { color: var(--accent); }
-
-  .sections > section {
-    scroll-margin-top: calc(var(--header-height) + 2rem);
-    padding-bottom: 3.5rem;
-  }
-
-  .sections > section + section {
-    padding-top: 3.5rem;
-    border-top: 1px solid var(--rule);
-  }
-
-  .sections h2 {
-    margin: 0 0 1.25rem;
-    font-size: clamp(1.8rem, 3vw, 2.35rem);
-    font-weight: 500;
-    letter-spacing: -0.025em;
-    line-height: 1.15;
-  }
-
-  .sections section > p:not(.section-label),
-  .method-list p,
-  .author-note p {
-    margin: 0;
-    color: var(--fg-muted);
-    font-size: 1rem;
-    line-height: 1.75;
-  }
-
-  .sections section > p + p { margin-top: 1.15rem; }
-
-  .sections a:not(.primary-link, .secondary-link),
-  .author-note a {
-    color: var(--fg);
-    text-decoration-color: var(--accent);
-  }
-
-  .method-list {
-    margin: 1.75rem 0 0;
-    padding: 0;
-    border-top: 1px solid var(--rule);
-    list-style: none;
-    counter-reset: method;
-  }
-
-  .method-list li {
-    position: relative;
-    padding: 1.5rem 0 1.5rem 3rem;
-    border-bottom: 1px solid var(--rule);
-    counter-increment: method;
-  }
-
-  .method-list li::before {
-    position: absolute;
-    top: 1.7rem;
-    left: 0;
+  .author-link strong { color: var(--fg); font-weight: 600; }
+  .author-link:hover strong { color: var(--accent); }
+  .author-monogram {
+    display: grid;
+    place-items: center;
+    width: 2.2rem;
+    height: 2.2rem;
+    border: 1px solid var(--rule);
+    border-radius: 50%;
+    background: var(--surface);
     color: var(--accent);
-    content: '0' counter(method);
+    font-size: 0.7rem;
+    font-weight: 650;
+  }
+
+  .reading-note {
+    padding: 2rem;
+    border: 1px solid var(--rule);
+    border-radius: 0.8rem;
+    background: var(--surface-strong);
+  }
+  .reading-note > .eyebrow { font-size: 0.59rem; }
+  .reading-note ol { list-style: none; margin: 1.75rem 0; padding: 0; }
+  .reading-note li { display: flex; align-items: start; gap: 1rem; }
+  .reading-note li + li { margin-top: 1.5rem; }
+  .reading-note li > span {
+    display: grid;
+    place-items: center;
+    flex: 0 0 2rem;
+    height: 2rem;
+    border: 1px solid var(--rule);
+    border-radius: 0.35rem;
+    background: var(--accent-soft);
+    color: var(--accent);
     font-family: var(--font-mono);
     font-size: 0.65rem;
   }
+  .reading-note strong { font-size: 0.86rem; font-weight: 600; }
+  .reading-note li p { margin: 0.35rem 0 0; color: var(--fg-muted); font-size: 0.73rem; line-height: 1.6; }
+  .reading-note-footer { margin: 0; padding-top: 1.15rem; border-top: 1px solid var(--rule); color: var(--fg-muted); font-size: 0.68rem; line-height: 1.7; }
 
-  .method-list h3 {
-    margin: 0 0 0.5rem;
-    font-size: 1.15rem;
-    font-weight: 600;
+  .about-body {
+    display: grid;
+    grid-template-columns: 15rem minmax(0, 43rem);
+    justify-content: space-between;
+    gap: clamp(3rem, 6vw, 7rem);
+    padding-block: clamp(3rem, 6vw, 5rem);
+    border-top: 1px solid var(--rule-strong);
   }
+  .about-contents { display: block; align-self: start; position: sticky; top: calc(var(--header-height) + 2rem); }
+  .about-contents > p { margin-bottom: 1.2rem; }
+  .about-contents ol { margin: 0; padding: 0; list-style: none; }
+  .about-contents li + li { margin-top: 0.35rem; }
+  .about-contents a { display: flex; align-items: center; gap: 0.85rem; min-height: 2.35rem; color: var(--fg-muted); font-size: 0.8rem; text-decoration: none; }
+  .about-contents a span { color: var(--accent); font-family: var(--font-mono); font-size: 0.63rem; }
+  .about-contents a:hover { color: var(--accent); }
 
-  .current-paper {
-    margin-top: 0.5rem;
+  .about-sections { min-width: 0; }
+  .about-sections > section { scroll-margin-top: calc(var(--header-height) + 2rem); padding-bottom: 3.5rem; }
+  .about-sections > section + section { padding-top: 3.5rem; border-top: 1px solid var(--rule); }
+  .about-sections .eyebrow { margin-bottom: 1rem; }
+  .about-sections h2 { margin: 0 0 1.25rem; font-size: clamp(1.65rem, 2.5vw, 2.15rem); font-weight: 600; letter-spacing: -0.04em; line-height: 1.2; }
+  .about-sections section > p:not(.eyebrow), .method-list p { margin: 0; color: var(--fg-muted); font-size: 0.97rem; line-height: 1.85; }
+  .about-sections section > p + p { margin-top: 1.15rem; }
+  .about-sections section > p a { color: var(--accent); text-decoration-color: var(--rule-strong); text-underline-offset: 0.2em; }
+  .about-sections section > p a:hover { text-decoration-color: var(--accent); }
+
+  .method-list { margin: 1.75rem 0 0; padding: 0; list-style: none; }
+  .method-list li { display: grid; grid-template-columns: 2.5rem minmax(0, 1fr); gap: 1.2rem; padding-block: 1.5rem; border-top: 1px solid var(--rule); }
+  .method-list li:last-child { padding-bottom: 0; }
+  .method-icon { display: grid; place-items: center; width: 2.5rem; height: 2.5rem; border: 1px solid var(--rule); border-radius: 0.45rem; background: var(--surface); color: var(--accent); }
+  .method-icon svg { width: 1.2rem; height: 1.2rem; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .method-list h3 { margin: 0 0 0.45rem; font-size: 1rem; font-weight: 600; }
+  .method-list p { font-size: 0.9rem; }
+  .current-links { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 1.75rem; }
+  .current-links a { font-size: 0.8rem; }
+
+  .about-sections > .practice-note { padding: 2.2rem; border: 1px solid var(--rule); border-radius: 0.7rem; background: var(--accent-soft); }
+  .practice-note h2 { font-size: clamp(1.5rem, 2.3vw, 1.85rem); }
+  .practice-link { display: inline-flex; align-items: center; gap: 1rem; margin-top: 1.5rem; color: var(--accent); font-size: 0.85rem; font-weight: 650; text-decoration: none; }
+  .practice-link:hover { text-decoration: underline; text-underline-offset: 0.3em; }
+  .author-note { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; padding-top: 2rem; color: var(--fg-muted); font-size: 0.75rem; line-height: 1.6; }
+  .author-note p { margin: 0; }
+  .author-note a { color: var(--accent); text-underline-offset: 0.2em; }
+  .author-note > a { text-decoration: none; }
+  .author-note > a:hover { text-decoration: underline; }
+  .author-note > a span { margin-left: 0.65rem; }
+
+  @media (max-width: 1000px) {
+    .about-header { gap: 2.5rem; grid-template-columns: minmax(0, 1.2fr) minmax(16rem, 0.8fr); }
+    .reading-note { padding: 1.5rem; }
+    .about-body { grid-template-columns: 12rem minmax(0, 1fr); gap: 3rem; }
   }
-
-  .current-paper .section-label { margin-bottom: 0.85rem; }
-
-  .current-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-top: 1.75rem;
-    font-family: var(--font-sans);
+  @media (max-width: 760px) {
+    .about-page { width: min(100% - 2.5rem, 76rem); }
+    .about-header { grid-template-columns: 1fr; gap: 2.5rem; }
+    .about-header h1 { font-size: clamp(2.55rem, 7vw, 3.5rem); }
+    .reading-note { max-width: 36rem; }
+    .about-body { grid-template-columns: 1fr; gap: 2.5rem; }
+    .about-contents { position: static; padding-bottom: 1.5rem; border-bottom: 1px solid var(--rule); }
+    .about-contents ol { display: flex; flex-wrap: wrap; gap: 0.2rem 1.5rem; }
+    .about-contents li + li { margin-top: 0; }
+    .about-contents a { min-height: 2.5rem; }
   }
-
-  .current-links a {
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    gap: 0.8rem;
-    padding: 0 1rem;
-    font-size: 0.78rem;
-    font-weight: 650;
-    text-decoration: none;
-  }
-
-  .primary-link {
-    background: var(--fg);
-    color: var(--bg);
-  }
-
-  .primary-link:hover {
-    background: var(--accent);
-    color: var(--surface-strong);
-  }
-
-  .secondary-link {
-    border: 1px solid var(--rule);
-    color: var(--fg);
-  }
-
-  .secondary-link:hover {
-    border-color: var(--rule-strong);
-    color: var(--fg);
-  }
-
-  .author-note {
-    padding-block: 0.5rem 1rem;
-  }
-
-  .author-note p { font-size: 0.9rem; }
-
-  @media (max-width: 720px) {
-    .about-body {
-      grid-template-columns: 1fr;
-      gap: 2.5rem;
-    }
-
-    .contents {
-      position: static;
-      padding-bottom: 1.5rem;
-      border-bottom: 1px solid var(--rule);
-    }
-
-    .contents ol {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 0.55rem 1.25rem;
-    }
-
-    .contents li + li { margin-top: 0; }
-  }
-
-  @media (max-width: 520px) {
-    .about-page { width: min(100% - 2rem, 70rem); }
-    .about-header { padding-block: 4rem; }
-    .about-header h1 { font-size: 2.75rem; }
+  @media (max-width: 480px) {
+    .about-page { width: min(100% - 2rem, 76rem); }
+    .about-header { padding-block: 3rem; }
+    .about-sections > section { padding-bottom: 2.75rem; }
+    .about-sections > section + section { padding-top: 2.75rem; }
+    .about-sections > .practice-note { padding: 1.5rem; }
     .current-links { align-items: stretch; flex-direction: column; }
     .current-links a { justify-content: center; }
+    .method-list li { grid-template-columns: 2rem minmax(0, 1fr); gap: 0.9rem; }
+    .method-icon { width: 2rem; height: 2rem; }
   }
 </style>

@@ -176,8 +176,8 @@ export default function StructureViewer() {
           Could not load {isViewerError ? '3D viewer' : 'trajectory'}: <code>{error}</code>.
           {!isViewerError && (
             <>
-              {' '}The demo data lives under <code>public/af2-demo/alphafold2/</code> —
-              regenerate it with <code>python scripts/build_af2_demo.py</code>.
+              {' '}The demo data lives under <code>public/af2-demo/alphafold2/</code>.
+              Regenerate it with <code>python scripts/build_af2_demo.py</code>.
             </>
           )}
         </div>

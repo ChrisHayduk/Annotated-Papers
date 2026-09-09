@@ -39,3 +39,9 @@ vendor/**/*.pyc
 # are only needed if someone wants to rebuild that JSON. Regeneration steps
 # are documented in scripts/build_coevolution_demo.py.
 scripts/data/*.fasta
+
+# Local browser verification artifacts
+.playwright-cli/
+output/playwright/
+output/structure-renders/
+output/interaction-recovery/

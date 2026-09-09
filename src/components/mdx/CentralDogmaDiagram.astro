@@ -1,0 +1,95 @@
+---
+// A deliberately short coding-region example. The stop codon is a signal,
+// not a fourth amino acid in the chain. Both DNA strands show their direction.
+---
+<figure class="dogma-fig paper-figure" aria-labelledby="dogma-title">
+  <header class="dogma-heading">
+    <span class="dogma-kicker">FROM SEQUENCE TO PROTEIN</span>
+    <h4 id="dogma-title">DNA → mRNA → an amino-acid chain</h4>
+    <p>A short coding-region example. Read each sequence in the direction shown.</p>
+  </header>
+
+  <div class="dogma-flow">
+    <section class="dogma-step dogma-dna" aria-label="Step 1: DNA">
+      <div class="dogma-step-title"><span>01</span><h5>DNA</h5></div>
+      <p class="dogma-strand-label">Coding strand · 5′ → 3′</p>
+      <div class="dogma-sequence" aria-label="Coding DNA: 5 prime, ATG GCT TTT TAA, 3 prime">
+        <span>ATG</span><span>GCT</span><span>TTT</span><span class="dogma-stop-codon">TAA</span>
+      </div>
+      <p class="dogma-strand-label dogma-template-label">Template strand · 3′ → 5′</p>
+      <div class="dogma-sequence dogma-template" aria-label="Template DNA: 3 prime, TAC CGA AAA ATT, 5 prime">
+        <span>TAC</span><span>CGA</span><span>AAA</span><span>ATT</span>
+      </div>
+      <p class="dogma-detail">RNA polymerase reads the complementary template strand.</p>
+    </section>
+
+    <div class="dogma-connector" aria-label="Transcription"><span>Transcription</span><b aria-hidden="true"></b></div>
+
+    <section class="dogma-step dogma-rna" aria-label="Step 2: messenger RNA">
+      <div class="dogma-step-title"><span>02</span><h5>mRNA</h5></div>
+      <p class="dogma-strand-label">Message · 5′ → 3′</p>
+      <div class="dogma-sequence" aria-label="Messenger RNA: 5 prime, AUG GCU UUU UAA, 3 prime">
+        <span>AUG</span><span>GCU</span><span>UUU</span><span class="dogma-stop-codon">UAA</span>
+      </div>
+      <p class="dogma-detail">The coding sequence matches the DNA coding strand, with <strong>U</strong> in place of <strong>T</strong>.</p>
+      <div class="dogma-codon-note"><span aria-hidden="true">[ AUG ]</span>One codon = three RNA bases</div>
+    </section>
+
+    <div class="dogma-connector" aria-label="Translation"><span>Translation</span><b aria-hidden="true"></b></div>
+
+    <section class="dogma-step dogma-protein" aria-label="Step 3: an amino-acid chain">
+      <div class="dogma-step-title"><span>03</span><h5>Amino-acid chain</h5></div>
+      <p class="dogma-strand-label">Build from the N- to the C-terminus</p>
+      <div class="dogma-chain" aria-label="Methionine, alanine, phenylalanine">
+        <span>Met</span><i aria-hidden="true"></i><span>Ala</span><i aria-hidden="true"></i><span>Phe</span>
+      </div>
+      <div class="dogma-stop"><strong>UAA → stop</strong><span>End translation. No amino acid is added.</span></div>
+    </section>
+  </div>
+
+  <figcaption>
+    <strong>A codon specifies an amino acid or a stop signal.</strong>
+    Here, AUG, GCU, and UUU specify Met, Ala, and Phe; UAA ends the chain.
+    This schematic omits the additional sequences and processing steps found in real genes.
+  </figcaption>
+</figure>
+
+<style>
+  .dogma-fig { margin: 1.75rem 0; padding: 1.35rem; border: 1px solid var(--rule-strong); border-radius: .7rem; background: var(--surface-strong); font-family: var(--font-sans); }
+  .dogma-kicker { color: var(--accent); font: 600 .65rem var(--font-mono); letter-spacing: .1em; }
+  .dogma-heading h4 { margin: .4rem 0 .35rem; color: var(--fg); font-size: 1.05rem; line-height: 1.45; }
+  .dogma-heading > p { margin: 0; color: var(--fg-muted); font-size: .8rem; line-height: 1.6; }
+  .dogma-flow { display: grid; grid-template-columns: minmax(0, 1fr); gap: .65rem; margin-top: 1.25rem; }
+  .dogma-step { min-width: 0; padding: 1rem; background: var(--bg); border: 1px solid var(--rule); border-radius: .45rem; }
+  .dogma-step-title { display: flex; align-items: baseline; gap: .55rem; }
+  .dogma-step-title > span { color: var(--accent); font: .68rem var(--font-mono); }
+  .dogma-step-title h5 { margin: 0; color: var(--fg); font-size: .9rem; line-height: 1.5; }
+  .dogma-strand-label { margin: .7rem 0 .4rem; color: var(--fg-muted); font-size: .66rem; line-height: 1.5; }
+  .dogma-template-label { margin-top: .65rem; }
+  .dogma-sequence { display: flex; gap: .35rem; }
+  .dogma-sequence > span { flex: 1; padding: .4rem .15rem; border: 1px solid var(--rule-strong); border-radius: .25rem; background: var(--surface-strong); color: var(--accent); text-align: center; font: 600 .78rem var(--font-mono); letter-spacing: .04em; }
+  .dogma-sequence .dogma-stop-codon { border-style: dashed; color: var(--fg-muted); }
+  .dogma-template > span { border: 0; padding-block: .2rem; background: transparent; color: var(--fg-muted); font-weight: 400; }
+  .dogma-detail { margin: .75rem 0 0; color: var(--fg-muted); font-size: .72rem; line-height: 1.65; }
+  .dogma-detail strong { color: var(--fg); }
+  .dogma-codon-note { display: flex; align-items: center; gap: .7rem; flex-wrap: wrap; margin-top: .9rem; padding-top: .7rem; border-top: 1px solid var(--rule); color: var(--fg-muted); font-size: .67rem; }
+  .dogma-codon-note > span { color: var(--accent); font: .73rem var(--font-mono); white-space: nowrap; }
+  .dogma-connector { display: flex; align-items: center; justify-content: center; gap: .65rem; color: var(--accent); font-size: .7rem; }
+  .dogma-connector b { font-weight: 400; font-size: 1.4rem; line-height: 1.2; }
+  .dogma-connector b::before { content: '↓'; }
+  .dogma-chain { display: flex; align-items: center; margin: .8rem 0 1rem; }
+  .dogma-chain > span { display: flex; align-items: center; justify-content: center; width: 3rem; height: 3rem; border-radius: 50%; background: var(--accent-soft); border: 1px solid var(--rule-strong); color: var(--accent); font: 600 .75rem var(--font-mono); }
+  .dogma-chain > i { flex: 1; height: 2px; background: var(--rule-strong); min-width: .45rem; max-width: 1.1rem; }
+  .dogma-stop { display: flex; flex-direction: column; gap: .3rem; border-top: 1px dashed var(--rule-strong); padding-top: .75rem; }
+  .dogma-stop strong { color: var(--fg); font: 600 .76rem var(--font-mono); }
+  .dogma-stop > span { color: var(--fg-muted); font-size: .7rem; line-height: 1.6; }
+  .dogma-fig figcaption { margin: 1rem 0 0; padding-top: .9rem; border-top: 1px solid var(--rule); color: var(--fg-muted); font-size: .76rem; line-height: 1.65; }
+  .dogma-fig figcaption strong { color: var(--fg); }
+  @media (min-width: 800px) {
+    .dogma-flow { grid-template-columns: minmax(0, 1fr) 4.3rem minmax(0, 1fr) 4.3rem minmax(0, 1fr); gap: .45rem; }
+    .dogma-step { padding: .8rem; }
+    .dogma-connector { flex-direction: column; gap: .45rem; font-size: .63rem; }
+    .dogma-connector b::before { content: '→'; }
+  }
+  @media (max-width: 520px) { .dogma-fig { padding: 1rem .8rem; } }
+</style>

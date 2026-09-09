@@ -1,5 +1,4 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Annotated Papers by Chris Hayduk">
-  <rect width="64" height="64" rx="12" fill="#f7f8f3"/>
   <rect x="10" y="14" width="34" height="43" rx="5" transform="rotate(-9 27 35.5)" fill="#a6c966"/>
   <path d="M25 7h16l14 14v31a5 5 0 0 1-5 5H25a5 5 0 0 1-5-5V12a5 5 0 0 1 5-5Z" fill="#1e6750"/>
   <path d="M41 7v9a5 5 0 0 0 5 5h9L41 7Z" fill="#a6c966"/>

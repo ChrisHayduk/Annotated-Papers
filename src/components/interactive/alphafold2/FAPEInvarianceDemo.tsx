@@ -3,34 +3,11 @@ import { OrbitControls } from '@react-three/drei';
 import { useMemo, useState } from 'react';
 import * as THREE from 'three';
 
-/**
- * FAPEInvarianceDemo — a deliberately small, hands-on demonstration of why
- * FAPE is the right loss for structure prediction.
- *
- * Setup: two identical 16-residue synthetic chains, ground truth (gray) and
- * prediction (colored). Two sliders transform the prediction:
- *   1. Global rotation — rotates the whole prediction around the Y axis.
- *   2. Local perturbation — pushes residue #8 off its true position along a
- *      fixed direction.
- *
- * Two loss values update in real time:
- *   - Coordinate MSE — mean of ‖pred_i − true_i‖² over residues. Naive,
- *     globally-framed, not SE(3)-invariant.
- *   - FAPE — frame-aligned point error. For every residue i, express every
- *     atom j in i's local frame; compute squared distance between predicted
- *     and true; clamp to d_clamp; average. SE(3)-invariant by construction.
- *
- * The teaching moment: drag the global-rotation slider. MSE skyrockets
- * (because coordinates have moved in the global frame). FAPE does not budge
- * (because rotating everything together preserves every pairwise
- * local-frame relationship). Drag the local-perturbation slider and both
- * losses rise together — FAPE is invariant to rigid motion, not to real
- * structural error.
- *
- * The demo uses Cα positions only (one "atom" per residue), which is a
- * simplification of the real all-atom FAPE but preserves the invariance
- * structure that matters pedagogically.
- */
+/** A Cα-only, synthetic-chain comparison of coordinate MSE and FAPE.
+ * Predicted local frames are built from chain geometry. A local perturbation
+ * is applied before a global rotation, preserving FAPE under that rotation.
+ * FAPE averages clamped Euclidean distances (not squared distances), without
+ * the length-scale normalization used by AlphaFold2. */
 
 // Chain geometry: a slight S-curve so the structure has meaningful
 // orientation (a straight chain would be boring and also degenerate for
@@ -150,18 +127,7 @@ function fape(
 // Main component
 // -----------------------------------------------------------------------------
 
-export default function FAPEInvarianceDemo() {
-  const [rotDeg, setRotDeg] = useState(0);
-  const [perturb, setPerturb] = useState(0);
-
-  const truth = useMemo(() => buildTrueChain(), []);
-
-  // Build the predicted chain as:
-  //   1. a local structural perturbation in the prediction's own frame;
-  //   2. a global rigid rotation of the entire perturbed prediction.
-  // This ordering keeps FAPE flat as the global-rotation slider moves, even
-  // when the local perturbation is nonzero.
-  const pred = useMemo(() => {
+function buildPrediction(truth: THREE.Vector3[], rotDeg: number, perturb: number): THREE.Vector3[] {
     const perturbed = truth.map((p) => p.clone());
     const k = 8;
     const dir = new THREE.Vector3(0.0, 1.0, 0.5).normalize();
@@ -181,7 +147,21 @@ export default function FAPEInvarianceDemo() {
       v.applyMatrix3(rotMat);
       return v.add(centroid);
     });
-  }, [truth, rotDeg, perturb]);
+}
+
+export default function FAPEInvarianceDemo() {
+  const [rotDeg, setRotDeg] = useState(0);
+  const [perturb, setPerturb] = useState(0);
+
+  const truth = useMemo(() => buildTrueChain(), []);
+
+  // Build the predicted chain as:
+  //   1. a local structural perturbation in the prediction's own frame;
+  //   2. a global rigid rotation of the entire perturbed prediction.
+  // This ordering keeps FAPE flat as the global-rotation slider moves, even
+  // when the local perturbation is nonzero.
+  const pred = useMemo(() => buildPrediction(truth, rotDeg, perturb), [truth, rotDeg, perturb]);
+  const alignedFape = useMemo(() => fape(buildPrediction(truth, 0, perturb), truth, D_CLAMP), [truth, perturb]);
 
   const losses = useMemo(() => {
     return {
@@ -192,61 +172,48 @@ export default function FAPEInvarianceDemo() {
 
   return (
     <figure className="fape-root">
+      <div className="fape-intro"><strong>Coordinate error and FAPE</strong><span>Rotate the chain or move residue 9.</span></div>
+      <div className="fape-scenarios" role="group" aria-label="Compare prediction scenarios">
+        {[
+          { label: 'Match', description: 'Matching chains', rotation: 0, offset: 0 },
+          { label: 'Rotate', description: 'Rotate the whole prediction', rotation: 90, offset: 0 },
+          { label: 'Distort', description: 'Displace residue 9', rotation: 0, offset: 1 },
+          { label: 'Both', description: 'Rotate the distorted prediction', rotation: 90, offset: 1 },
+        ].map((scenario) => (
+          <button key={scenario.label} type="button" aria-label={scenario.description} title={scenario.description} aria-pressed={rotDeg === scenario.rotation && perturb === scenario.offset}
+            onClick={() => { setRotDeg(scenario.rotation); setPerturb(scenario.offset); }}>
+            {scenario.label}
+          </button>
+        ))}
+      </div>
       <div className="fape-stage">
         <div className="fape-canvas-wrap">
           <Canvas
-            camera={{ position: [0, 2, 7], fov: 40 }}
+            camera={{ position: [0, 2, 10], fov: 40 }}
             style={{ height: 340 }}
             dpr={[1, 2]}
           >
             <ambientLight intensity={0.4} />
             <directionalLight position={[3, 5, 4]} intensity={0.8} />
             <OrbitControls enablePan={false} />
-            <ChainRenderer points={truth} color="#6b6f77" radius={0.065} />
-            <ChainRenderer points={pred} color="#e8a1a1" radius={0.09} />
+            <ChainRenderer points={truth} color="#cbd2cd" radius={0.065} />
+            <ChainRenderer points={pred} color="#a6c966" radius={0.09} />
+            {perturb > 0 && <mesh position={pred[8].toArray()}>
+              <sphereGeometry args={[0.21, 20, 20]} />
+              <meshStandardMaterial color="#e8a45d" />
+            </mesh>}
             <PerResidueSticks truth={truth} pred={pred} />
             <axesHelper args={[0.8]} />
           </Canvas>
+          <div className="fape-legend">
+            <span><i style={{ background: '#cbd2cd' }} /> Reference</span>
+            <span><i style={{ background: '#a6c966' }} /> Prediction</span>
+            {perturb > 0 && <span><i style={{ background: '#e8a45d' }} /> Residue 9</span>}
+            <span>Drag to move the camera.</span>
+          </div>
         </div>
 
         <div className="fape-panel">
-          <div className="fape-losses">
-            <div className="fape-loss-item">
-              <div className="fape-loss-label">Coordinate MSE</div>
-              <div className="fape-loss-value fape-loss-value--mse">
-                {losses.mse.toFixed(3)}
-              </div>
-              <div className="fape-loss-bar">
-                <div
-                  className="fape-loss-bar-fill fape-loss-bar-fill--mse"
-                  style={{
-                    width: `${Math.min(100, losses.mse * 14).toFixed(1)}%`,
-                  }}
-                />
-              </div>
-              <div className="fape-loss-hint">
-                naive L2 in the global frame — <em>not</em> invariant
-              </div>
-            </div>
-            <div className="fape-loss-item">
-              <div className="fape-loss-label">FAPE (clamped, d_clamp = {D_CLAMP})</div>
-              <div className="fape-loss-value fape-loss-value--fape">
-                {losses.fape.toFixed(3)}
-              </div>
-              <div className="fape-loss-bar">
-                <div
-                  className="fape-loss-bar-fill fape-loss-bar-fill--fape"
-                  style={{
-                    width: `${Math.min(100, losses.fape * 40).toFixed(1)}%`,
-                  }}
-                />
-              </div>
-              <div className="fape-loss-hint">
-                per-frame local comparison — <em>invariant</em> to rigid motion
-              </div>
-            </div>
-          </div>
-
           <div className="fape-sliders">
             <label className="fape-slider">
               <div className="fape-slider-label-row">
@@ -263,12 +230,12 @@ export default function FAPEInvarianceDemo() {
                 aria-label="Global rotation of prediction"
               />
               <div className="fape-slider-caption">
-                rotates the whole prediction around the vertical axis
+                Whole prediction, around the vertical axis
               </div>
             </label>
             <label className="fape-slider">
               <div className="fape-slider-label-row">
-                <span>Local perturbation on residue 9</span>
+                <span>Displacement of residue 9</span>
                 <span className="fape-slider-value">{perturb.toFixed(2)}</span>
               </div>
               <input
@@ -281,7 +248,7 @@ export default function FAPEInvarianceDemo() {
                 aria-label="Local perturbation on a single residue of the prediction"
               />
               <div className="fape-slider-caption">
-                pushes one residue off its true position before the global rigid motion
+                Moves the residue before the global rotation
               </div>
             </label>
             <button
@@ -295,18 +262,36 @@ export default function FAPEInvarianceDemo() {
               Reset
             </button>
           </div>
+          <div className="fape-losses">
+            <div className="fape-loss-item">
+              <div className="fape-loss-label">Coordinate MSE</div>
+              <div className="fape-loss-value fape-loss-value--mse">
+                {losses.mse.toFixed(3)}
+              </div>
+              <div className="fape-loss-hint">
+                World coordinates · length²
+              </div>
+            </div>
+            <div className="fape-loss-item">
+              <div className="fape-loss-label">FAPE</div>
+              <div className="fape-loss-value fape-loss-value--fape">
+                {losses.fape.toFixed(3)}
+              </div>
+              <div className="fape-loss-hint">
+                Local frames · length
+              </div>
+            </div>
+            <p className="fape-comparison">
+              Before rotation: <strong>{alignedFape.toFixed(3)}</strong> · FAPE change: <strong>{Math.abs(losses.fape - alignedFape) < 1e-10 ? '< 10⁻¹⁰' : Math.abs(losses.fape - alignedFape).toExponential(2)}</strong>
+            </p>
+          </div>
+
         </div>
       </div>
 
       <figcaption className="fape-caption">
-        <strong>The demo:</strong> drag the <em>global rotation</em> slider and watch the two loss
-        values. Coordinate MSE rises dramatically because every residue's global coordinates have
-        moved. FAPE stays essentially flat — rotating the whole structure together preserves every
-        residue's view of every other residue's position, which is all FAPE measures. Now drag the
-        <em> local perturbation</em> slider: only residue 9 moves, but both losses rise. FAPE is
-        invariant to rigid motion, not to real structural error. That combination — insensitive to
-        the arbitrary choice of global frame, sensitive to every local mistake — is why the
-        AlphaFold2 team built the loss this way.
+        Gray connectors show coordinate displacement, not FAPE. This Cα-only example uses arbitrary length
+        units, a distance clamp of {D_CLAMP}, and no length normalization. The two losses have different units.
       </figcaption>
 
       <style>{`
@@ -318,13 +303,24 @@ export default function FAPEInvarianceDemo() {
           background: color-mix(in oklab, var(--bg) 94%, var(--rule) 6%);
           font-family: var(--font-sans);
         }
+        .fape-intro { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.8rem; margin-bottom: 0.7rem; }
+        .fape-intro strong { color: var(--fg); font-size: 0.95rem; }
+        .fape-intro > span { color: var(--fg-muted); font-size: 0.77rem; }
+        .fape-scenarios { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+        .fape-scenarios button { min-height: 2rem; padding: 0.4rem 0.75rem; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface-strong); color: var(--fg); font: inherit; font-size: 0.77rem; cursor: pointer; }
+        .fape-scenarios button[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+        .fape-comparison { grid-column: 1 / -1; margin: 0 !important; color: var(--accent); font-size: 0.72rem; line-height: 1.6; }
+        .fape-legend { display: flex; flex-wrap: wrap; gap: 0.45rem 0.9rem; padding: 0.75rem; color: #e5ebdd; font-size: 0.71rem; line-height: 1.5; }
+        .fape-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+        .fape-legend i { width: 0.65rem; height: 0.65rem; border-radius: 50%; }
+        .fape-legend span:last-child { flex-basis: 100%; color: #bccabd; }
         .fape-stage {
           display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+          grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
           gap: 1rem;
           align-items: start;
         }
-        @media (max-width: 820px) {
+        @media (max-width: 720px) {
           .fape-stage {
             grid-template-columns: 1fr;
           }
@@ -333,20 +329,20 @@ export default function FAPEInvarianceDemo() {
           border: 1px solid var(--rule);
           border-radius: 4px;
           overflow: hidden;
-          background: rgb(22, 22, 26);
+          background: #142722;
           min-height: 340px;
         }
         .fape-panel {
           display: flex;
           flex-direction: column;
-          gap: 0.95rem;
+          gap: 0.85rem;
         }
 
         /* Loss readouts */
         .fape-losses {
-          display: flex;
-          flex-direction: column;
-          gap: 0.7rem;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+          gap: 0.65rem;
         }
         .fape-loss-item {
           border: 1px solid var(--rule);
@@ -355,8 +351,8 @@ export default function FAPEInvarianceDemo() {
           background: color-mix(in oklab, var(--bg) 88%, var(--rule) 12%);
         }
         .fape-loss-label {
-          font-size: 0.7rem;
-          letter-spacing: 0.07em;
+          font-size: 0.65rem;
+          letter-spacing: 0.03em;
           text-transform: uppercase;
           color: var(--fg-muted);
         }
@@ -369,21 +365,8 @@ export default function FAPEInvarianceDemo() {
           min-width: 4rem;
           display: inline-block;
         }
-        .fape-loss-value--mse { color: #e89a5a; }
-        .fape-loss-value--fape { color: #7ab7a0; }
-        .fape-loss-bar {
-          height: 6px;
-          background: color-mix(in oklab, var(--rule) 40%, transparent);
-          border-radius: 3px;
-          margin-top: 0.35rem;
-          overflow: hidden;
-        }
-        .fape-loss-bar-fill {
-          height: 100%;
-          transition: width 120ms ease;
-        }
-        .fape-loss-bar-fill--mse { background: #e89a5a; }
-        .fape-loss-bar-fill--fape { background: #7ab7a0; }
+        .fape-loss-value--mse { color: #a25a25; }
+        .fape-loss-value--fape { color: var(--accent); }
         .fape-loss-hint {
           font-size: 0.72rem;
           color: var(--fg-muted);
@@ -418,6 +401,7 @@ export default function FAPEInvarianceDemo() {
           text-align: right;
         }
         .fape-slider input[type='range'] {
+          min-height: 1.6rem;
           width: 100%;
           accent-color: var(--accent);
         }
@@ -427,7 +411,8 @@ export default function FAPEInvarianceDemo() {
         }
         .fape-reset {
           align-self: flex-start;
-          padding: 0.3rem 0.7rem;
+          padding: 0.4rem 0.7rem;
+          min-height: 2.4rem;
           border: 1px solid var(--rule);
           border-radius: 4px;
           background: transparent;
@@ -441,7 +426,7 @@ export default function FAPEInvarianceDemo() {
         /* Caption */
         .fape-caption {
           margin-top: 0.85rem;
-          font-size: 0.87rem;
+          font-size: 0.76rem;
           line-height: 1.55;
           color: var(--fg-muted);
         }
@@ -497,8 +482,7 @@ function ChainRenderer({
   );
 }
 
-// Per-residue dashed sticks from true to predicted position (to make the
-// discrepancies immediately visible).
+// Per-residue connectors show coordinate-space displacement, not FAPE.
 function PerResidueSticks({ truth, pred }: { truth: THREE.Vector3[]; pred: THREE.Vector3[] }) {
   return (
     <>

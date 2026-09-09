@@ -1,703 +1,184 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 
 type Mode = 'row' | 'col';
-
-interface Species {
-  icon: string;
-  name: string;
-}
-
-// Five organisms matching the §1.2 cytochrome c MSA figure. Icons are emoji
-// so they render without extra assets; worst case, a browser falls back to a
-// tofu box and the species name carries the meaning.
-const ORGANISMS: Species[] = [
+type Query = { row: number; col: number };
+const ORGANISMS = [
   { icon: '🧑', name: 'H. sapiens' },
   { icon: '🐴', name: 'E. caballus' },
   { icon: '🐔', name: 'G. gallus' },
   { icon: '🪰', name: 'D. melanogaster' },
   { icon: '🍄', name: 'S. cerevisiae' },
 ];
-
-// 10-column window from the §1.2 alignment: aligned columns 6..15, i.e. the
-// core region where every species has content (no gaps). Each row here is
-// verbatim from the MSA in §1.2 — this widget is just animating the same
-// tensor.
-const MSA: string[][] = [
-  ['G', 'D', 'V', 'E', 'K', 'G', 'K', 'K', 'I', 'F'], // H. sapiens
-  ['G', 'D', 'V', 'E', 'K', 'G', 'K', 'K', 'I', 'F'], // E. caballus
-  ['G', 'D', 'I', 'E', 'K', 'G', 'K', 'K', 'I', 'F'], // G. gallus
-  ['G', 'D', 'V', 'E', 'K', 'G', 'K', 'K', 'L', 'F'], // D. melanogaster
-  ['G', 'S', 'A', 'K', 'K', 'G', 'A', 'T', 'L', 'F'], // S. cerevisiae
+// Verbatim aligned columns 6–15 from the cytochrome c alignment in §1.2.
+const MSA = [
+  ['G', 'D', 'V', 'E', 'K', 'G', 'K', 'K', 'I', 'F'],
+  ['G', 'D', 'V', 'E', 'K', 'G', 'K', 'K', 'I', 'F'],
+  ['G', 'D', 'I', 'E', 'K', 'G', 'K', 'K', 'I', 'F'],
+  ['G', 'D', 'V', 'E', 'K', 'G', 'K', 'K', 'L', 'F'],
+  ['G', 'S', 'A', 'K', 'K', 'G', 'A', 'T', 'L', 'F'],
 ];
-
-const N_ROWS = MSA.length;
-const N_COLS = MSA[0].length;
-
-// Layout constants (SVG user units). The SVG scales to fit its container.
+const ROWS = MSA.length;
+const COLS = MSA[0].length;
+const START = 6;
+const INITIAL: Query = { row: 0, col: 2 };
 const CELL = 36;
-const GAP = 6;
-const ROW_LABEL_W = 150; // space reserved for "🧑 H. sapiens"-style labels
-const COL_HEADER_H = 54; // space reserved for backbone dots + position numbers
-const PAD_LEFT = 10;
-const PAD_RIGHT = 56; // extra room on the right so column-mode arcs don't clip
-const PAD_TOP = 12;
-const PAD_BOTTOM = 18;
+const COL_GAP = 24;
+const ROW_GAP = 26;
+const LEFT = 154;
+const TOP = 58;
+const WIDTH = LEFT + COLS * (CELL + COL_GAP) - COL_GAP + 34;
+const HEIGHT = TOP + ROWS * (CELL + ROW_GAP) - ROW_GAP + 20;
+const xy = (row: number, col: number) => ({ x: LEFT + col * (CELL + COL_GAP), y: TOP + row * (CELL + ROW_GAP) });
+function nextQuery(query: Query, mode: Mode): Query {
+  return mode === 'row'
+    ? { row: (query.row + (query.col === COLS - 1 ? 1 : 0)) % ROWS, col: (query.col + 1) % COLS }
+    : { row: (query.row + 1) % ROWS, col: (query.col + (query.row === ROWS - 1 ? 1 : 0)) % COLS };
+}
 
-/**
- * MSAAttentionAnimator — a small widget that toggles between row-wise
- * (within-sequence) and column-wise (across-sequence) attention on an MSA.
- *
- * The design mirrors how the two operations differ in the Evoformer:
- *   - Row-wise attention (Algorithm 7): fixed sequence k, attention runs over
- *     residues i → j within that sequence. The animation highlights one row
- *     at a time and sweeps a "query" residue through it; arcs fan out from
- *     the query to every other cell in the row, showing the all-to-all
- *     pattern.
- *   - Column-wise attention (Algorithm 8): fixed residue position j, attention
- *     runs over sequences k → k' at that position. The animation highlights
- *     one column at a time and sweeps a query organism through it; arcs fan
- *     out vertically within the column.
- *
- * Controls mirror the TriMulAnimator in the same article: segmented
- * mode-switch, play/pause/step/reset, speed slider, prefers-reduced-motion.
- */
-export default function MSAAttentionAnimator({
-  initialMode = 'row',
-}: { initialMode?: Mode } = {}) {
+/** Animated MSA attention. Connections indicate eligible keys, not weights. */
+export default function MSAAttentionAnimator({ initialMode = 'row' }: { initialMode?: Mode } = {}) {
   const [mode, setMode] = useState<Mode>(initialMode);
-  const [counter, setCounter] = useState(0);
+  const [query, setQuery] = useState<Query>(INITIAL);
+  const [hover, setHover] = useState<Query | null>(null);
   const [playing, setPlaying] = useState(true);
-  const [speedMs, setSpeedMs] = useState(350); // per query step
+  const [speed, setSpeed] = useState(900);
   const [reduced, setReduced] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const rootRef = useRef<HTMLElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const arrowId = `msa-arrow-${useId().replace(/:/g, '')}`;
+  const select = (next: Query) => { setPlaying(false); setQuery(next); };
 
-  // In row mode the outer loop is rows (5) and the inner loop is columns (10),
-  // so one full cycle is 5*10 = 50 steps. In column mode it's the reverse.
-  const outerMax = mode === 'row' ? N_ROWS : N_COLS;
-  const innerMax = mode === 'row' ? N_COLS : N_ROWS;
-  const totalSteps = outerMax * innerMax;
-  const outerIdx = Math.floor(counter / innerMax) % outerMax;
-  const innerIdx = counter % innerMax;
-
-  // Reset animation when mode flips so we always start at (0, 0).
   useEffect(() => {
-    setCounter(0);
-  }, [mode]);
-
-  // Respect prefers-reduced-motion: pause autoplay on first load and on
-  // preference changes.
-  useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
     const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const apply = () => {
-      setReduced(mq.matches);
-      if (mq.matches) setPlaying(false);
-    };
+    const apply = () => { setReduced(mq.matches); if (mq.matches) setPlaying(false); };
     apply();
-    mq.addEventListener?.('change', apply);
-    return () => mq.removeEventListener?.('change', apply);
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
   }, []);
-
-  // Animation loop. Advance the counter on a fixed interval; the derived
-  // outer/inner indices update automatically.
-  const rafRef = useRef<number | null>(null);
-  const lastTickRef = useRef<number>(0);
   useEffect(() => {
-    if (!playing) return;
-    let cancelled = false;
-    const tick = (t: number) => {
-      if (cancelled) return;
-      if (t - lastTickRef.current >= speedMs) {
-        lastTickRef.current = t;
-        setCounter((prev) => (prev + 1) % totalSteps);
-      }
-      rafRef.current = requestAnimationFrame(tick);
-    };
-    rafRef.current = requestAnimationFrame(tick);
-    return () => {
-      cancelled = true;
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [playing, speedMs, totalSteps]);
-
-  const stepOnce = useCallback(() => {
-    setPlaying(false);
-    setCounter((prev) => (prev + 1) % totalSteps);
-  }, [totalSteps]);
-
-  const reset = useCallback(() => {
-    setCounter(0);
-    setPlaying(false);
+    const observer = new IntersectionObserver(([entry]) => setVisible(entry.isIntersecting));
+    if (rootRef.current) observer.observe(rootRef.current);
+    return () => observer.disconnect();
   }, []);
+  useEffect(() => {
+    if (!playing || !visible) return;
+    const timer = window.setInterval(() => setQuery(previous => nextQuery(previous, mode)), speed);
+    return () => window.clearInterval(timer);
+  }, [playing, visible, mode, speed]);
+  useEffect(() => {
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const revealQuery = () => {
+      const svg = viewport.querySelector('svg');
+      if (!svg) return;
+      const scale = svg.getBoundingClientRect().width / WIDTH;
+      const left = xy(query.row, query.col).x * scale;
+      const right = left + CELL * scale;
+      const margin = 10;
+      let scrollLeft = viewport.scrollLeft;
+      if (left < scrollLeft + margin) scrollLeft = Math.max(0, left - margin);
+      else if (right > scrollLeft + viewport.clientWidth - margin) scrollLeft = right - viewport.clientWidth + margin;
+      if (Math.abs(scrollLeft - viewport.scrollLeft) > 1) viewport.scrollTo({ left: scrollLeft, behavior: reduced ? 'auto' : 'smooth' });
+    };
+    revealQuery();
+    const observer = new ResizeObserver(revealQuery);
+    observer.observe(viewport);
+    return () => observer.disconnect();
+  }, [query, reduced]);
 
-  // Geometry helpers.
-  const gridW = N_COLS * CELL + (N_COLS - 1) * GAP;
-  const gridH = N_ROWS * CELL + (N_ROWS - 1) * GAP;
-  const svgW = PAD_LEFT + ROW_LABEL_W + gridW + PAD_RIGHT;
-  const svgH = PAD_TOP + COL_HEADER_H + gridH + PAD_BOTTOM;
-
-  const cellXY = (r: number, c: number) => ({
-    x: PAD_LEFT + ROW_LABEL_W + c * (CELL + GAP),
-    y: PAD_TOP + COL_HEADER_H + r * (CELL + GAP),
-  });
-  const cellCenter = (r: number, c: number) => {
-    const { x, y } = cellXY(r, c);
-    return { x: x + CELL / 2, y: y + CELL / 2 };
+  const keySelect = (event: KeyboardEvent<SVGGElement>, row: number, col: number) => {
+    let next = { row, col };
+    if (event.key === 'ArrowLeft') next.col = Math.max(0, col - 1);
+    else if (event.key === 'ArrowRight') next.col = Math.min(COLS - 1, col + 1);
+    else if (event.key === 'ArrowUp') next.row = Math.max(0, row - 1);
+    else if (event.key === 'ArrowDown') next.row = Math.min(ROWS - 1, row + 1);
+    else if (event.key === 'Home') next.col = 0;
+    else if (event.key === 'End') next.col = COLS - 1;
+    else if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    select(next);
+    event.currentTarget.ownerSVGElement?.querySelector<SVGGElement>(`[data-row="${next.row}"][data-col="${next.col}"]`)?.focus();
   };
 
-  // Active row/col (for highlighting) and the query cell (for arcs).
-  const { activeRow, activeCol, queryRow, queryCol } = useMemo(() => {
-    if (mode === 'row') {
-      return { activeRow: outerIdx, activeCol: -1, queryRow: outerIdx, queryCol: innerIdx };
-    }
-    return { activeRow: -1, activeCol: outerIdx, queryRow: innerIdx, queryCol: outerIdx };
-  }, [mode, outerIdx, innerIdx]);
+  const origin = xy(query.row, query.col);
+  const targets = mode === 'row'
+    ? MSA[query.row].map((_, col) => ({ row: query.row, col }))
+    : MSA.map((_, row) => ({ row, col: query.col }));
+  const focus = hover ?? query;
+  const eligibleCount = mode === 'row' ? COLS : ROWS;
 
-  // Build the fan of attention arcs from the query cell to every other cell
-  // in the active row/col.
-  const arcs: React.ReactNode[] = [];
-  if (mode === 'row') {
-    // Row mode: arcs fan out horizontally, dipping *into* the cell band so
-    // they don't collide with the column header or other rows. The dip is
-    // small (≤ CELL/2 - 4) so residue letters remain readable.
-    const r = activeRow;
-    const qc = queryCol;
-    const queryCenter = cellCenter(r, qc);
-    for (let c = 0; c < N_COLS; c++) {
-      if (c === qc) continue;
-      const target = cellCenter(r, c);
-      const dist = Math.abs(c - qc);
-      // Arc dips downward (below the cell centers by a fraction of CELL).
-      // Further-away targets get deeper arcs.
-      const dip = Math.min(4 + dist * 2.2, CELL / 2 - 4);
-      const midX = (queryCenter.x + target.x) / 2;
-      const midY = queryCenter.y + dip;
-      const d = `M ${queryCenter.x} ${queryCenter.y} Q ${midX} ${midY} ${target.x} ${target.y}`;
-      arcs.push(<path key={`arc-r-${c}`} d={d} className="msa-arc" />);
-    }
-  } else {
-    // Column mode: arcs fan out vertically, bowing to the right of the
-    // active column into the right-side padding.
-    const c = activeCol;
-    const qr = queryRow;
-    const queryCenter = cellCenter(qr, c);
-    for (let r = 0; r < N_ROWS; r++) {
-      if (r === qr) continue;
-      const target = cellCenter(r, c);
-      const dist = Math.abs(r - qr);
-      const bow = Math.min(10 + dist * 6, PAD_RIGHT - 12);
-      const midY = (queryCenter.y + target.y) / 2;
-      const midX = queryCenter.x + CELL / 2 + bow;
-      const d = `M ${queryCenter.x} ${queryCenter.y} Q ${midX} ${midY} ${target.x} ${target.y}`;
-      arcs.push(<path key={`arc-c-${r}`} d={d} className="msa-arc" />);
-    }
-  }
-
-  // Column-header geometry: backbone dots live on a light rule, labeled with
-  // position numbers below them.
-  const backboneY = PAD_TOP + COL_HEADER_H - 26;
-  const colNumY = PAD_TOP + COL_HEADER_H - 10;
-  const firstColCx = PAD_LEFT + ROW_LABEL_W + CELL / 2;
-  const lastColCx = PAD_LEFT + ROW_LABEL_W + (N_COLS - 1) * (CELL + GAP) + CELL / 2;
-
-  return (
-    <figure className="msa-root">
-      <div className="msa-controls" role="group" aria-label="Animation controls">
-        <div className="msa-modeswitch" role="tablist" aria-label="Attention direction">
-          <button
-            role="tab"
-            aria-selected={mode === 'row'}
-            className={mode === 'row' ? 'msa-seg msa-seg--on' : 'msa-seg'}
-            onClick={() => setMode('row')}
-          >
-            Row-wise <span className="msa-seg-sub">(within sequence)</span>
-          </button>
-          <button
-            role="tab"
-            aria-selected={mode === 'col'}
-            className={mode === 'col' ? 'msa-seg msa-seg--on' : 'msa-seg'}
-            onClick={() => setMode('col')}
-          >
-            Column-wise <span className="msa-seg-sub">(across sequences)</span>
-          </button>
-        </div>
-
-        <div className="msa-btns">
-          <button
-            type="button"
-            onClick={() => setPlaying((p) => !p)}
-            aria-label={playing ? 'Pause animation' : 'Play animation'}
-            className="msa-btn"
-          >
-            {playing ? 'Pause' : 'Play'}
-          </button>
-          <button type="button" onClick={stepOnce} aria-label="Advance one step" className="msa-btn">
-            Step
-          </button>
-          <button type="button" onClick={reset} aria-label="Reset" className="msa-btn">
-            Reset
-          </button>
-        </div>
-
-        <label className="msa-speed">
-          <span className="msa-speed-label">Speed</span>
-          <input
-            type="range"
-            min={120}
-            max={800}
-            step={20}
-            value={920 - speedMs}
-            onChange={(e) => setSpeedMs(920 - Number(e.currentTarget.value))}
-            aria-label="Animation speed"
-          />
-        </label>
+  return <figure className={`msa-root${playing && !reduced ? ' msa-playing' : ''}`} ref={rootRef}>
+    <div className="msa-title"><strong>Explore MSA attention</strong><span>Click a residue to choose the query.</span></div>
+    <div className="msa-controls" role="group" aria-label="Attention and playback controls">
+      <div className="msa-modes" role="group" aria-label="Attention direction">
+        <button type="button" aria-pressed={mode === 'row'} onClick={() => { setMode('row'); setPlaying(false); }}>Row attention</button>
+        <button type="button" aria-pressed={mode === 'col'} onClick={() => { setMode('col'); setPlaying(false); }}>Column attention</button>
       </div>
-
-      <div className="msa-viewport">
-        <svg
-          viewBox={`0 0 ${svgW} ${svgH}`}
-          className="msa-svg"
-          role="img"
-          aria-label={
-            mode === 'row'
-              ? `Row-wise attention on sequence ${ORGANISMS[activeRow].name}, query column ${queryCol + 1}`
-              : `Column-wise attention at position ${activeCol + 1}, query sequence ${ORGANISMS[queryRow].name}`
-          }
-        >
-          {/* Active-row / active-column background band. A soft accent rect
-             that sits behind the cells and extends into the label gutters, so
-             it reads as "this whole axis is the scope of attention". */}
-          {mode === 'row' && activeRow >= 0 && (() => {
-            const { y } = cellXY(activeRow, 0);
-            return (
-              <rect
-                x={PAD_LEFT + 4}
-                y={y - 3}
-                width={ROW_LABEL_W + gridW + 6}
-                height={CELL + 6}
-                rx={6}
-                className="msa-band"
-              />
-            );
-          })()}
-          {mode === 'col' && activeCol >= 0 && (() => {
-            const { x } = cellXY(0, activeCol);
-            return (
-              <rect
-                x={x - 3}
-                y={PAD_TOP + 4}
-                width={CELL + 6}
-                height={COL_HEADER_H + gridH + 2}
-                rx={6}
-                className="msa-band"
-              />
-            );
-          })()}
-
-          {/* Column header: backbone line + beads + numbers. The bead for the
-             active column glows; others are muted. */}
-          <line
-            x1={firstColCx}
-            y1={backboneY}
-            x2={lastColCx}
-            y2={backboneY}
-            className="msa-backbone"
-          />
-          {MSA[0].map((_, c) => {
-            const cx = PAD_LEFT + ROW_LABEL_W + c * (CELL + GAP) + CELL / 2;
-            const isActive = mode === 'col' && c === activeCol;
-            return (
-              <g key={`col-header-${c}`}>
-                <circle
-                  cx={cx}
-                  cy={backboneY}
-                  r={isActive ? 5 : 3.5}
-                  className={`msa-bead${isActive ? ' msa-bead--active' : ''}`}
-                />
-                <text
-                  x={cx}
-                  y={colNumY}
-                  textAnchor="middle"
-                  className={`msa-collabel${isActive ? ' msa-collabel--active' : ''}`}
-                >
-                  {c + 1}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Row headers: emoji icon + species name on each row. */}
-          {ORGANISMS.map((org, r) => {
-            const y = cellXY(r, 0).y + CELL / 2;
-            const isActive = mode === 'row' && r === activeRow;
-            return (
-              <g key={`row-header-${r}`}>
-                <text
-                  x={PAD_LEFT + 10}
-                  y={y + 6}
-                  fontSize="20"
-                  className="msa-rowicon"
-                >
-                  {org.icon}
-                </text>
-                <text
-                  x={PAD_LEFT + 40}
-                  y={y + 5}
-                  className={`msa-rowlabel${isActive ? ' msa-rowlabel--active' : ''}`}
-                >
-                  {org.name}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Grid cells. Default state is muted; cells in the active row/col
-             get an accent fill; the current query cell is the brightest. */}
-          {MSA.map((row, r) =>
-            row.map((residue, c) => {
-              const { x, y } = cellXY(r, c);
-              const inActive =
-                (mode === 'row' && r === activeRow) ||
-                (mode === 'col' && c === activeCol);
-              const isQuery =
-                (mode === 'row' && r === queryRow && c === queryCol) ||
-                (mode === 'col' && r === queryRow && c === queryCol);
-              let cls = 'msa-cell';
-              if (inActive) cls += ' msa-cell--active';
-              if (isQuery) cls += ' msa-cell--query';
-              let textCls = 'msa-residue';
-              if (inActive) textCls += ' msa-residue--active';
-              if (isQuery) textCls += ' msa-residue--query';
-              return (
-                <g key={`cell-${r}-${c}`}>
-                  <rect x={x} y={y} width={CELL} height={CELL} rx={4} className={cls} />
-                  <text
-                    x={x + CELL / 2}
-                    y={y + CELL / 2 + 5}
-                    textAnchor="middle"
-                    className={textCls}
-                  >
-                    {residue}
-                  </text>
-                </g>
-              );
-            }),
-          )}
-
-          {/* Attention arcs fan out from the query cell to all other cells in
-             the active row/col. Drawn on top of cells so they read as the
-             primary action. */}
-          {arcs}
-
-          {/* Small dot highlighting the query cell center, so the eye has an
-             anchor for where the arcs emanate. */}
-          {(() => {
-            const qc = cellCenter(queryRow, queryCol);
-            return <circle cx={qc.x} cy={qc.y} r={3.2} className="msa-querydot" />;
-          })()}
-        </svg>
+      <div className="msa-playback">
+        <button type="button" onClick={() => setPlaying(value => !value)} aria-label={playing ? 'Pause animation' : 'Play animation'}>{playing ? 'Ⅱ Pause' : '▶ Play'}</button>
+        <button type="button" onClick={() => select(nextQuery(query, mode))}>Step →</button>
+        <button type="button" onClick={() => select(INITIAL)}>Reset</button>
       </div>
+      <label className="msa-speed">Speed <select aria-label="Animation speed" value={speed} onChange={event => setSpeed(Number(event.currentTarget.value))}><option value={1600}>Slow</option><option value={900}>Normal</option><option value={400}>Fast</option></select></label>
+    </div>
+    <div className="msa-querybar">
+      <label>Query <select aria-label="Query sequence" value={query.row} onChange={event => select({ ...query, row: Number(event.currentTarget.value) })}>{ORGANISMS.map((org, row) => <option key={org.name} value={row}>{org.name}</option>)}</select></label>
+      <label>Column <select aria-label="Query alignment column" value={query.col} onChange={event => select({ ...query, col: Number(event.currentTarget.value) })}>{MSA[0].map((_, col) => <option key={col} value={col}>{col + START}</option>)}</select></label>
+      <span className="msa-key-count">{eligibleCount} eligible keys · includes the query</span>
+    </div>
 
-      <figcaption className="msa-caption">
-        {/* Status block. Layout is fixed: two label/value pairs in fixed
-           slots. Only the value *content* changes as the animation plays;
-           slot widths are locked via min-width so nothing reflows. The
-           prose below is fully static — no interpolated values — so it
-           never moves either. */}
-        <div className="msa-status" aria-live="off">
-          {mode === 'row' ? (
-            <>
-              <div className="msa-status-item">
-                <span className="msa-status-label">Active sequence</span>
-                <span className="msa-status-value msa-status-value--species">
-                  <span className="msa-status-icon" aria-hidden="true">
-                    {ORGANISMS[activeRow].icon}
-                  </span>
-                  <em>{ORGANISMS[activeRow].name}</em>
-                </span>
-              </div>
-              <div className="msa-status-item">
-                <span className="msa-status-label">Query position</span>
-                <span className="msa-status-value msa-status-value--num">
-                  {queryCol + 1}
-                </span>
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="msa-status-item">
-                <span className="msa-status-label">Active position</span>
-                <span className="msa-status-value msa-status-value--num">
-                  {activeCol + 1}
-                </span>
-              </div>
-              <div className="msa-status-item">
-                <span className="msa-status-label">Query sequence</span>
-                <span className="msa-status-value msa-status-value--species">
-                  <span className="msa-status-icon" aria-hidden="true">
-                    {ORGANISMS[queryRow].icon}
-                  </span>
-                  <em>{ORGANISMS[queryRow].name}</em>
-                </span>
-              </div>
-            </>
-          )}
-        </div>
-        <p className="msa-hint">
-          {mode === 'row' ? (
-            <>
-              <strong>Row-wise attention.</strong> Within one sequence, every residue
-              attends to every other residue in the same sequence — attention runs along
-              the <em>amino-acid chain</em>. No information crosses between organisms in
-              this step.
-            </>
-          ) : (
-            <>
-              <strong>Column-wise attention.</strong> At one aligned position, every
-              organism's residue attends to the corresponding residue in every other
-              organism — attention runs across the <em>organism</em> axis. This is the
-              operation that asks "what does this residue look like across the family?"
-            </>
-          )}
-          {reduced && (
-            <>
-              {' '}
-              <span className="msa-muted">(Reduced-motion mode: use the Step button to advance.)</span>
-            </>
-          )}
-        </p>
-      </figcaption>
-
-      <style>{`
-        .msa-root {
-          margin: 1.5rem 0;
-          border: 1px solid var(--rule);
-          border-radius: 6px;
-          padding: 0.9rem 1rem 1rem;
-          background: color-mix(in oklab, var(--bg) 94%, var(--rule) 6%);
-          font-family: var(--font-sans);
-        }
-        .msa-controls {
-          display: flex;
-          align-items: center;
-          gap: 0.9rem;
-          flex-wrap: wrap;
-          margin-bottom: 0.75rem;
-        }
-        .msa-modeswitch {
-          display: inline-flex;
-          border: 1px solid var(--rule);
-          border-radius: 4px;
-          overflow: hidden;
-        }
-        .msa-seg {
-          border: none;
-          background: transparent;
-          padding: 0.35rem 0.8rem;
-          font: inherit;
-          font-size: 0.82rem;
-          color: var(--fg-muted);
-          cursor: pointer;
-          border-right: 1px solid var(--rule);
-          line-height: 1.15;
-        }
-        .msa-seg:last-child { border-right: none; }
-        .msa-seg-sub {
-          display: block;
-          font-size: 0.7rem;
-          opacity: 0.75;
-          margin-top: 1px;
-          font-weight: 400;
-        }
-        .msa-seg--on {
-          background: var(--accent);
-          color: white;
-        }
-        .msa-seg--on .msa-seg-sub { opacity: 0.85; }
-        .msa-btns { display: inline-flex; gap: 0.35rem; }
-        .msa-btn {
-          font-size: 0.82rem;
-          padding: 0.3rem 0.7rem;
-          border: 1px solid var(--rule);
-          border-radius: 4px;
-          background: transparent;
-          color: var(--fg);
-          cursor: pointer;
-        }
-        .msa-btn:hover { border-color: var(--fg-muted); }
-        .msa-speed {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.45rem;
-          font-size: 0.78rem;
-          color: var(--fg-muted);
-          margin-left: auto;
-        }
-        .msa-speed-label { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; }
-        .msa-viewport {
-          display: flex;
-          justify-content: center;
-          overflow-x: auto;
-        }
-        .msa-svg {
-          max-width: 100%;
-          height: auto;
-          min-width: 560px;
-        }
-        /* Active-axis band */
-        .msa-band {
-          fill: color-mix(in oklab, var(--accent) 10%, transparent);
-          stroke: color-mix(in oklab, var(--accent) 35%, transparent);
-          stroke-width: 1;
-        }
-        /* Column header */
-        .msa-backbone {
-          stroke: var(--fg-muted);
-          stroke-width: 1;
-          opacity: 0.35;
-        }
-        .msa-bead {
-          fill: var(--fg-muted);
-          opacity: 0.55;
-          transition: r 200ms ease, fill 200ms ease, opacity 200ms ease;
-        }
-        .msa-bead--active {
-          fill: var(--accent);
-          opacity: 1;
-        }
-        .msa-collabel {
-          font-family: var(--font-mono);
-          font-size: 10.5px;
-          fill: var(--fg-muted);
-        }
-        .msa-collabel--active {
-          fill: var(--accent);
-          font-weight: 700;
-        }
-        /* Row header */
-        .msa-rowicon { user-select: none; }
-        .msa-rowlabel {
-          font-size: 12px;
-          font-style: italic;
-          fill: var(--fg-muted);
-        }
-        .msa-rowlabel--active {
-          fill: var(--accent);
-          font-weight: 700;
-        }
-        /* Cells */
-        .msa-cell {
-          fill: color-mix(in oklab, var(--rule) 50%, transparent);
-          stroke: color-mix(in oklab, var(--rule) 80%, transparent);
-          stroke-width: 0.5;
-          transition: fill 200ms ease, stroke 200ms ease;
-        }
-        .msa-cell--active {
-          fill: color-mix(in oklab, var(--accent) 22%, transparent);
-          stroke: var(--accent);
-          stroke-width: 1.1;
-        }
-        .msa-cell--query {
-          fill: color-mix(in oklab, var(--accent) 55%, transparent);
-          stroke: var(--accent);
-          stroke-width: 1.6;
-        }
-        .msa-residue {
-          font-family: var(--font-mono);
-          font-size: 14px;
-          fill: var(--fg-muted);
-          user-select: none;
-        }
-        .msa-residue--active {
-          fill: var(--fg);
-        }
-        .msa-residue--query {
-          fill: var(--fg);
-          font-weight: 700;
-        }
-        /* Attention arcs */
-        .msa-arc {
-          fill: none;
-          stroke: var(--accent);
-          stroke-width: 1.15;
-          opacity: 0.55;
-          pointer-events: none;
-        }
-        .msa-querydot {
-          fill: var(--accent);
-          pointer-events: none;
-        }
-        /* Caption */
-        .msa-caption {
-          margin-top: 0.9rem;
-          font-size: 0.88rem;
-          color: var(--fg);
-        }
-        /* Status block: two label/value pairs with locked-width value slots
-           so the text around them never reflows during the animation. */
-        .msa-status {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.35rem 1.75rem;
-          align-items: baseline;
-          padding: 0.55rem 0.75rem;
-          margin-bottom: 0.65rem;
-          border: 1px solid color-mix(in oklab, var(--rule) 70%, transparent);
-          border-radius: 4px;
-          background: color-mix(in oklab, var(--bg) 88%, var(--rule) 12%);
-        }
-        .msa-status-item {
-          display: inline-flex;
-          align-items: baseline;
-          gap: 0.55rem;
-          white-space: nowrap;
-        }
-        .msa-status-label {
-          font-size: 0.68rem;
-          letter-spacing: 0.09em;
-          text-transform: uppercase;
-          color: var(--fg-muted);
-          flex-shrink: 0;
-        }
-        .msa-status-value {
-          display: inline-flex;
-          align-items: baseline;
-          gap: 0.3rem;
-          color: var(--fg);
-          font-size: 0.92rem;
-        }
-        /* Species slot is wide enough to hold the longest binomial
-           ("D. melanogaster") plus the emoji, so shorter names don't
-           shift anything to their right. */
-        .msa-status-value--species {
-          min-width: 10.5rem;
-        }
-        /* Number slot uses tabular figures so 1-digit and 2-digit
-           values occupy the same width. min-width gives a little slack. */
-        .msa-status-value--num {
-          min-width: 1.75rem;
-          font-variant-numeric: tabular-nums;
-          font-weight: 600;
-        }
-        .msa-status-icon {
-          font-size: 1.05rem;
-          line-height: 1;
-          display: inline-block;
-          width: 1.35rem;
-          text-align: center;
-        }
-        .msa-status-value em { font-style: italic; color: var(--fg); }
-        /* Static explanatory prose — no interpolated values, so it never
-           reflows either. */
-        .msa-hint {
-          margin: 0;
-          font-size: 0.87rem;
-          line-height: 1.55;
-          color: var(--fg-muted);
-        }
-        .msa-hint strong { color: var(--fg); }
-        .msa-hint em { font-style: italic; }
-        .msa-muted { font-style: italic; }
-      `}</style>
-    </figure>
-  );
+    <div className="msa-viewport" ref={viewportRef} role="region" aria-label="Scrollable interactive MSA alignment" tabIndex={0}>
+      <svg viewBox={`0 0 ${WIDTH} ${HEIGHT}`} className="msa-svg" role="group" aria-label={`${mode === 'row' ? 'Row' : 'Column'} attention: ${ORGANISMS[query.row].name}, query column ${query.col + START}. Use arrow keys to move the selected query.`}>
+        <defs><marker id={arrowId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0 1 L9 5 L0 9" fill="none" stroke="var(--accent)" strokeWidth="1.5" /></marker></defs>
+        {mode === 'row'
+          ? <rect className="msa-band" x="4" y={origin.y - 4} width={WIDTH - 14} height={CELL + 8} rx="7" />
+          : <rect className="msa-band" x={origin.x - 4} y="10" width={CELL + 8} height={HEIGHT - 20} rx="7" />}
+        {MSA[0].map((_, col) => <text key={col} x={xy(0, col).x + CELL / 2} y="31" textAnchor="middle" className={`msa-collabel${col === query.col ? ' msa-label-selected' : ''}`}>{col + START}</text>)}
+        {ORGANISMS.map((org, row) => <g key={org.name}><text x="12" y={xy(row, 0).y + 24} className="msa-rowicon">{org.icon}</text><text x="42" y={xy(row, 0).y + 23} className={`msa-rowlabel${row === query.row ? ' msa-label-selected' : ''}`}>{org.name}</text></g>)}
+        <g className="msa-connections" aria-hidden="true">
+          {targets.map(target => {
+            const point = xy(target.row, target.col);
+            const self = target.row === query.row && target.col === query.col;
+            const hovered = hover?.row === target.row && hover?.col === target.col;
+            // End connections at cell edges. Their curves stay in the gutters,
+            // leaving the amino-acid letters completely unobstructed.
+            const d = self
+              ? `M${origin.x + 11} ${origin.y + 1} C${origin.x - 2} ${origin.y - 19} ${origin.x + CELL + 2} ${origin.y - 19} ${origin.x + 25} ${origin.y + 1}`
+              : mode === 'row'
+                ? `M${origin.x + CELL / 2} ${origin.y + 1} Q${(origin.x + point.x + CELL) / 2} ${origin.y - Math.min(14 + Math.abs(target.col - query.col) * 3, 34)} ${point.x + CELL / 2} ${point.y + 1}`
+                : `M${origin.x + CELL - 1} ${origin.y + CELL / 2} Q${origin.x + CELL + Math.min(10 + Math.abs(target.row - query.row) * 7, 36)} ${(origin.y + point.y + CELL) / 2} ${point.x + CELL - 1} ${point.y + CELL / 2}`;
+            return <path key={`${target.row}-${target.col}`} d={d} className={`msa-arc${hovered ? ' msa-arc-hovered' : ''}`} markerEnd={`url(#${arrowId})`} />;
+          })}
+        </g>
+        {MSA.map((row, r) => row.map((residue, c) => {
+          const point = xy(r, c);
+          const eligible = mode === 'row' ? r === query.row : c === query.col;
+          const isQuery = r === query.row && c === query.col;
+          return <g key={`${r}-${c}`} role="button" tabIndex={isQuery ? 0 : -1} aria-label={`${ORGANISMS[r].name}, alignment column ${c + START}, ${residue}${isQuery ? ', selected query' : eligible ? ', eligible key' : ''}`} aria-pressed={isQuery} data-row={r} data-col={c} className={`msa-cell-button${eligible ? ' msa-cell-eligible' : ''}${isQuery ? ' msa-cell-query' : ''}`} onClick={() => select({ row: r, col: c })} onKeyDown={event => keySelect(event, r, c)} onMouseEnter={() => setHover({ row: r, col: c })} onMouseLeave={() => setHover(null)} onFocus={() => setPlaying(false)}>
+            <title>{`${ORGANISMS[r].name} · column ${c + START} · ${residue}. Click to set the query.`}</title>
+            <rect x={point.x} y={point.y} width={CELL} height={CELL} rx="5" />
+            <text x={point.x + CELL / 2} y={point.y + CELL / 2 + 5} textAnchor="middle">{residue}</text>
+          </g>;
+        }))}
+      </svg>
+    </div>
+    <div className="msa-readout"><span><i className="msa-query-key" />Query</span><span><i className="msa-eligible-key" />Eligible key</span><span className="msa-hover-readout">{ORGANISMS[focus.row].name} · column {focus.col + START} · <strong>{MSA[focus.row][focus.col]}</strong></span></div>
+    <figcaption className="msa-caption">
+      <strong>{mode === 'row' ? 'Within one sequence.' : 'Across aligned sequences.'}</strong>{' '}
+      {mode === 'row' ? 'The query can attend to every displayed position in its row, including itself.' : 'The query can attend to every displayed sequence at the same alignment column, including itself.'}{' '}
+      Connections mark the positions the query can attend to; they do not show learned attention weights. This is a crop of alignment columns 6–15; scroll horizontally on a narrow screen.
+      {reduced && <span className="msa-reduced"> Reduced motion is on; playback starts paused.</span>}
+    </figcaption>
+    <style>{`
+      .msa-root{margin:1.5rem 0;padding:1rem;border:1px solid var(--rule);border-radius:.6rem;background:var(--surface-strong);font-family:var(--font-sans);color:var(--fg)}
+      .msa-title{display:flex;gap:.5rem 1rem;align-items:baseline;flex-wrap:wrap;margin-bottom:.75rem}.msa-title strong{font-size:.95rem}.msa-title>span{font-size:.74rem;color:var(--fg-muted)}
+      .msa-controls,.msa-querybar{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem .75rem}.msa-controls{padding-bottom:.7rem;border-bottom:1px solid var(--rule)}.msa-querybar{padding:.65rem 0}.msa-modes,.msa-playback{display:flex;gap:.25rem}.msa-modes{padding:.2rem;border:1px solid var(--rule);border-radius:.4rem;background:var(--bg)}
+      .msa-root button,.msa-root select{min-height:2.25rem;border:1px solid var(--rule);border-radius:.3rem;background:var(--surface-strong);color:var(--fg);padding:.4rem .55rem;font:500 .74rem var(--font-sans);cursor:pointer}.msa-modes button{border-color:transparent;background:transparent}.msa-modes button[aria-pressed=true]{background:var(--accent);color:var(--bg)}.msa-root button:hover{border-color:var(--accent)}.msa-root :is(button,select):focus-visible,.msa-viewport:focus-visible{outline:2px solid var(--focus);outline-offset:3px}.msa-speed,.msa-querybar label{display:flex;align-items:center;gap:.4rem;font-size:.7rem;color:var(--fg-muted)}.msa-speed{margin-left:auto}.msa-key-count{margin-left:auto;font-size:.7rem;color:var(--accent)}
+      .msa-viewport{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;border-block:1px solid var(--rule);border-radius:.3rem;background:var(--bg)}.msa-svg{display:block;width:100%;height:auto;min-width:720px}.msa-band{fill:color-mix(in oklab,var(--accent) 7%,transparent);stroke:color-mix(in oklab,var(--accent) 18%,transparent);stroke-width:1}.msa-collabel{fill:var(--fg-muted);font:11px var(--font-mono)}.msa-rowlabel{fill:var(--fg-muted);font:italic 11.5px var(--font-sans)}.msa-rowicon{font-size:19px}.msa-label-selected{fill:var(--accent);font-weight:700}.msa-arc{fill:none;stroke:var(--accent);stroke-width:1.4;opacity:.65;pointer-events:none}.msa-arc-hovered{stroke-width:2.4;opacity:1}.msa-playing .msa-arc{stroke-dasharray:4 3;animation:msa-travel 1.2s linear infinite}.msa-connections{pointer-events:none}
+      .msa-cell-button{cursor:pointer;outline:none}.msa-cell-button rect{fill:var(--surface-strong);stroke:var(--rule-strong);stroke-width:.8;transition:fill 180ms,stroke 180ms}.msa-cell-button text{fill:var(--fg-muted);font:14px var(--font-mono);pointer-events:none;user-select:none}.msa-cell-eligible rect{fill:color-mix(in oklab,var(--accent) 15%,var(--surface-strong));stroke:var(--accent)}.msa-cell-eligible text{fill:var(--fg)}.msa-cell-query rect{fill:var(--accent);stroke:var(--accent);stroke-width:2}.msa-cell-query text{fill:var(--bg);font-weight:700}.msa-cell-button:hover rect{stroke:var(--accent);stroke-width:2.5}.msa-cell-button:focus-visible rect{stroke:var(--focus);stroke-width:3;stroke-dasharray:3 2}.msa-cell-button:focus-visible text{font-weight:700}
+      .msa-readout{display:flex;align-items:center;flex-wrap:wrap;gap:.45rem 1rem;margin-top:.65rem;font-size:.7rem;color:var(--fg-muted)}.msa-readout>span{display:inline-flex;align-items:center;gap:.35rem}.msa-readout i{display:inline-block;width:.65rem;height:.65rem;border:1px solid var(--accent);border-radius:2px}.msa-query-key{background:var(--accent)}.msa-eligible-key{background:color-mix(in oklab,var(--accent) 15%,var(--surface-strong))}.msa-hover-readout{margin-left:auto}.msa-caption{margin:.65rem 0 0!important;color:var(--fg-muted);font-size:.75rem;line-height:1.65}.msa-caption strong{color:var(--fg)}.msa-reduced{font-style:italic}
+      @keyframes msa-travel{to{stroke-dashoffset:-14}}@media(prefers-reduced-motion:reduce){.msa-playing .msa-arc{animation:none;stroke-dasharray:none}.msa-cell-button rect{transition:none}}@media(max-width:600px){.msa-root{padding:.8rem}.msa-speed{margin-left:0}.msa-key-count,.msa-hover-readout{margin-left:0}.msa-querybar label:first-child{flex:1}.msa-querybar label:first-child select{min-width:0;max-width:100%}.msa-querybar select{font-size:.7rem}.msa-title>span{font-size:.72rem}}
+    `}</style>
+  </figure>;
 }

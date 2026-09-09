@@ -113,19 +113,25 @@ for (const heading of items) {
       }
 
       const heading = document.getElementById(id);
-      const text = heading?.textContent?.replace(/#$/, '').trim() ?? links[0]?.textContent?.trim() ?? id;
+      const text = heading?.textContent?.replace(/#$/, '').trim() ?? links[0]?.textContent?.trim() ?? (id || 'Paper overview');
       document.dispatchEvent(new CustomEvent('paper-section-change', { detail: { id, text } }));
     }
 
     function chooseCurrentHeading() {
       if (performance.now() < lockedUntil) return;
-      const offset = Math.max(96, window.innerHeight * 0.18);
-      let current = sectionHeadings[0];
+      // The active heading should include a newly reached fragment target,
+      // which sits below the global header, mobile dock, and reading margin.
+      const headerHeight = document.querySelector('.site-nav')?.getBoundingClientRect().height ?? 80;
+      const dockHeight = window.innerWidth < 1024
+        ? document.querySelector('.mobile-reader-dock summary')?.getBoundingClientRect().height ?? 60
+        : 0;
+      const offset = Math.max(headerHeight + dockHeight + 48, window.innerHeight * 0.18);
+      let current: HTMLElement | undefined;
       for (const heading of sectionHeadings) {
         if (heading.getBoundingClientRect().top <= offset) current = heading;
         else break;
       }
-      setActive(current.id);
+      setActive(current?.id ?? '');
     }
 
     let scrollQueued = false;
@@ -162,14 +168,14 @@ for (const heading of items) {
 <style>
   .toc {
     font-family: var(--font-sans);
-    font-size: 0.72rem;
+    font-size: 0.75rem;
     line-height: 1.35;
   }
 
   .toc-title {
     margin: 0 0 0.6rem;
     color: var(--fg-faint);
-    font-size: 0.58rem;
+    font-size: 0.61rem;
     font-weight: 700;
     letter-spacing: 0.11em;
     text-transform: uppercase;
@@ -181,8 +187,8 @@ for (const heading of items) {
     list-style: none;
   }
 
-  .toc-chapters { border-top: 1px solid var(--rule); }
-  .toc-chapter { margin: 0; border-bottom: 1px solid var(--rule); }
+  .toc-chapter { margin: 0.2rem 0; border-radius: 0.4rem; }
+  .toc-chapter--active { background: var(--accent-soft); }
 
   .toc a {
     display: block;
@@ -191,8 +197,9 @@ for (const heading of items) {
   }
 
   .toc-chapter-link {
-    min-height: 2.6rem;
-    padding: 0.6rem 0.45rem;
+    min-height: 2.7rem;
+    padding: 0.65rem 0.6rem;
+    border-radius: 0.35rem;
     display: grid !important;
     grid-template-columns: 1.55rem minmax(0, 1fr);
     align-items: center;
@@ -207,7 +214,7 @@ for (const heading of items) {
   }
 
   .toc a:hover,
-  .toc a:focus-visible { color: var(--fg); }
+  .toc a:focus-visible { color: var(--accent); background: var(--surface); }
 
   .toc-chapter--active > .toc-chapter-link,
   .toc a.toc-active {
@@ -226,15 +233,15 @@ for (const heading of items) {
 
   .toc-subsections a {
     position: relative;
-    padding: 0.28rem 0.45rem 0.28rem 0.7rem;
-    font-size: 0.66rem;
-    line-height: 1.35;
+    padding: 0.35rem 0.6rem 0.35rem 0.7rem;
+    font-size: 0.7rem;
+    line-height: 1.45;
   }
 
   .toc-subsections a::before {
     content: "";
     position: absolute;
-    top: 0.78rem;
+    top: 0.9rem;
     left: 0;
     width: 0.25rem;
     height: 1px;

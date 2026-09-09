@@ -1,428 +1,176 @@
 ---
 import { getCollection } from 'astro:content';
 import BaseLayout from '../layouts/BaseLayout.astro';
+import ProteinBackbone from '../components/home/ProteinBackbone.astro';
 
 const entries = (await getCollection('papers', (e) => !e.data.draft)).sort(
   (a, b) => b.data.publishedDate.valueOf() - a.data.publishedDate.valueOf(),
 );
 const featured = entries.find((entry) => entry.data.slug === 'alphafold2') ?? entries[0];
-const featuredRepo = featured?.data.referenceRepo;
-
-// Site-level JSON-LD. Establishes that the site is authored and published by
-// Chris Hayduk, and points at chrishayduk.com via author.sameAs. Search
-// engines use sameAs to collapse identities across domains — the thing we
-// most want for a fresh subdomain that needs to inherit trust from the
-// main domain.
-const PERSON = {
-  '@type': 'Person' as const,
-  name: 'Chris Hayduk',
-  url: 'https://chrishayduk.com',
-  sameAs: [
-    'https://chrishayduk.com',
-    'https://github.com/ChrisHayduk',
-    'https://x.com/ChrisHayduk',
-    'https://www.linkedin.com/in/chrishayduk/'
-  ],
+const otherPapers = entries.filter((entry) => entry !== featured);
+const isAlphaFold = featured?.data.slug === 'alphafold2';
+const chapters = [
+  { number: '01', title: 'Biological background', description: 'Sequence, evolution, and protein structure.', anchor: '1-background' },
+  { number: '03', title: 'The Evoformer', description: 'MSA and pair representations, attention, and updates.', anchor: '3-the-evoformer--birds-eye-view' },
+  { number: '10', title: 'The Structure Module', description: 'Frames, geometry, and Invariant Point Attention.', anchor: '10-the-structure-module' },
+  { number: '14', title: 'A small training example', description: 'Fit a small model to a single protein structure.', anchor: '14-a-real-world-walkthrough' },
+];
+const person = {
+  '@type': 'Person', name: 'Chris Hayduk', url: 'https://chrishayduk.com',
+  sameAs: ['https://chrishayduk.com', 'https://github.com/ChrisHayduk', 'https://x.com/ChrisHayduk', 'https://www.linkedin.com/in/chrishayduk/'],
 };
-
 const siteJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'WebSite',
-  name: 'Annotated Papers by Chris Hayduk',
-  alternateName: 'Annotated Papers',
-  url: Astro.site?.toString() ?? 'https://annotated.chrishayduk.com/',
-  description:
-    'Detailed annotations of research papers, with runnable code and interactive figures, by Chris Hayduk.',
-  author: PERSON,
-  publisher: PERSON,
-  inLanguage: 'en',
+  '@context': 'https://schema.org', '@type': 'WebSite', name: 'Annotated Papers by Chris Hayduk',
+  url: Astro.site?.toString(),
+  description: 'Research papers on biological AI, annotated with PyTorch code and interactive figures by Chris Hayduk.',
+  author: person, publisher: person, inLanguage: 'en',
 };
 ---
 <BaseLayout
   title="Annotated Papers by Chris Hayduk"
-  description="Detailed walkthroughs of research papers, with runnable code and interactive figures — by Chris Hayduk."
+  description="Research papers on biological AI, annotated with explanations of the math, PyTorch implementations, and interactive figures. By Chris Hayduk."
   jsonLd={siteJsonLd}
 >
   <div class="home">
-    <header class="introduction">
-      <p class="section-label">Annotated Papers by Chris Hayduk</p>
-      <h1>Annotated Papers</h1>
-      <p class="introduction-lede">
-        Detailed walkthroughs of research papers, with runnable implementations and
-        interactive figures alongside the original ideas.
-      </p>
-      <p class="introduction-note">
-        Each annotation explains the notation and implementation details and includes
-        interactive figures for selected mechanisms.
-      </p>
-    </header>
-
-    <main class="library" aria-labelledby="library-title">
-      <div class="library-heading">
-        <h2 id="library-title">Featured paper</h2>
-        <p>{entries.length} {entries.length === 1 ? 'annotation' : 'annotations'}</p>
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-copy">
+        <p class="eyebrow">By Chris Hayduk</p>
+        <h1 id="hero-title">Biological AI<br /><span>papers, annotated.</span></h1>
+        <p class="hero-description">Detailed notes on research papers, with code from my PyTorch implementations. I explain the notation, show the tensor operations, and use interactive figures where a static diagram falls short.</p>
+        <div class="hero-actions">
+          {featured && <a class="button-primary" href={`/${featured.data.slug}`}>{isAlphaFold ? 'Read AlphaFold2' : 'Read the latest paper'} <span aria-hidden="true">→</span></a>}
+          <a class="text-link" href="#how-it-works">About the annotations <span aria-hidden="true">↓</span></a>
+        </div>
+        <p class="hero-note">Free to read, with no account required.</p>
       </div>
-
-      {featured ? (
-        <article class="paper-entry">
-          <div class="paper-copy">
-            <p class="paper-citation">
-              {featured.data.authors.join(', ')} · {featured.data.venue} · {featured.data.paperYear}
-            </p>
-            <h3><a href={`/${featured.data.slug}`}>{featured.data.title}</a></h3>
-            <p class="paper-description">{featured.data.description}</p>
-
-            <div class="paper-links">
-              <a class="primary-link" href={`/${featured.data.slug}`}>
-                Read the annotation <span aria-hidden="true">→</span>
-              </a>
-              {featuredRepo && (
-                <a
-                  class="secondary-link"
-                  href={featuredRepo.url}
-                  target="_blank"
-                  rel="noopener"
-                >
-                  View the implementation <span aria-hidden="true">↗</span>
-                </a>
-              )}
-            </div>
+      <figure class="model-preview">
+        <figcaption class="preview-heading"><span class="status-dot" aria-hidden="true"></span> Protein structure prediction <span class="preview-label">AlphaFold2</span></figcaption>
+        <div class="preview-sequence">
+          <div class="stage-label"><span>01 / INPUT</span><span>Amino acid sequence</span></div>
+          <div class="sequence" role="img" aria-label="Amino acid sequence begins T T C C P S I V A R S N">
+            {'TTCCPSIVARSN'.split('').map((letter, i) => <span class:list={{ highlight: [2, 3, 6, 9].includes(i) }}>{letter}</span>)}<span class="sequence-ellipsis" aria-hidden="true">…</span>
           </div>
+        </div>
+        <div class="flow-arrow" aria-hidden="true">↓</div>
+        <div class="preview-model">
+          <div class="matrix" aria-hidden="true">{Array.from({length: 36}, (_, i) => <i class:list={{ mid: i % 5 === 0 || i % 7 === 0, strong: i % 7 === 2 }} />)}</div>
+          <div><span class="stage-label">02 / MODEL</span><p>Evoformer <span aria-hidden="true">→</span> Structure Module</p><span class="model-detail">Sequence and pair representations become 3D coordinates.</span></div>
+        </div>
+        <div class="flow-arrow" aria-hidden="true">↓</div>
+        <div class="preview-structure">
+          <div><span class="stage-label">03 / STRUCTURE</span><p>Protein<br /> backbone</p><span class="structure-note">The example structure<br /> used in Chapter 14</span></div>
+          <ProteinBackbone />
+        </div>
+        <div class="preview-footer"><span>A simplified view of the AlphaFold2 architecture.</span></div>
+      </figure>
+    </section>
 
-          <dl class="paper-details" aria-label="Annotation details">
-            <div>
-              <dt>Chapters</dt>
-              <dd>{featured.data.chapterCount ?? 16}</dd>
-            </div>
-            <div>
-              <dt>Code excerpts</dt>
-              <dd>{featured.data.codeSnippetCount ?? 37}</dd>
-            </div>
-            <div>
-              <dt>Interactive figures</dt>
-              <dd>{featured.data.interactiveCount ?? 8}</dd>
-            </div>
-            <div>
-              <dt>Reading time</dt>
-              <dd>{featured.data.readingTimeMinutes} min</dd>
-            </div>
-          </dl>
-        </article>
-      ) : (
-        <p class="empty-state">No published annotations yet.</p>
-      )}
-    </main>
+    <div class="topics" aria-label="Topics in the annotations">
+      <span>Topics covered</span>
+      <ul><li>Protein structure</li><li>Attention</li><li>Evolution</li><li>3D geometry</li><li>PyTorch</li></ul>
+    </div>
 
-    <section class="process" aria-labelledby="process-title">
-      <div class="process-heading">
-        <p class="section-label">Method</p>
-        <h2 id="process-title">How the annotations work</h2>
-        <p>
-          Each annotation keeps the source paper, a readable implementation, and explanatory
-          figures connected throughout the discussion.
-        </p>
+    <section class="library" id="papers" aria-labelledby="library-title">
+      <div class="section-heading">
+        <div><p class="eyebrow">Papers</p><h2 id="library-title">Available annotations</h2></div>
+        <p class="library-count">{entries.length} {entries.length === 1 ? 'paper' : 'papers'}</p>
       </div>
+      {featured ? (
+        <article class="featured-paper">
+          <div class="paper-overview">
+            <div class="paper-topline"><span class="paper-badge">Featured annotation</span><span>{featured.data.venue} · {featured.data.paperYear}</span></div>
+            <h3><a href={`/${featured.data.slug}`}>{featured.data.title}</a></h3>
+            <p class="paper-description">{isAlphaFold ? 'A detailed explanation of AlphaFold2’s architecture, from the input features to the Evoformer and Structure Module. Code excerpts come from minAlphaFold2, a compact PyTorch implementation.' : featured.data.description}</p>
+            <p class="paper-citation">Based on {featured.data.authors[0]}{featured.data.authors.length > 1 ? ' et al.' : ''} · Annotated by {featured.data.annotator}</p>
+            <dl class="paper-stats">
+              {featured.data.chapterCount && <div><dt>Chapters</dt><dd>{featured.data.chapterCount}</dd></div>}
+              {featured.data.codeSnippetCount && <div><dt>Code excerpts</dt><dd>{featured.data.codeSnippetCount}</dd></div>}
+              {featured.data.interactiveCount && <div><dt>Interactive figures</dt><dd>{featured.data.interactiveCount}</dd></div>}
+            </dl>
+            <div class="paper-actions"><a class="button-primary" href={`/${featured.data.slug}`}>Start reading <span aria-hidden="true">→</span></a>{featured.data.referenceRepo && <a class="text-link" href={featured.data.referenceRepo.url} target="_blank" rel="noopener">View the code <span aria-hidden="true">↗</span></a>}</div>
+            {featured.data.readingTimeMinutes && <p class="reading-note">About {featured.data.readingTimeMinutes} minutes of reading.</p>}
+          </div>
+          {isAlphaFold && <div class="chapter-preview"><p class="eyebrow">Selected chapters</p><ol>{chapters.map((chapter) => <li><a href={`/alphafold2#${chapter.anchor}`}><span class="chapter-number">{chapter.number}</span><span><strong>{chapter.title}</strong><span class="chapter-description">{chapter.description}</span></span><span class="chapter-arrow" aria-hidden="true">↗</span></a></li>)}</ol><a class="all-chapters" href="/alphafold2#contents-overview-title">View all sections <span aria-hidden="true">→</span></a></div>}
+        </article>
+      ) : <p class="empty-state">No annotations published yet. <a href="/rss.xml">Follow the RSS feed</a> for new annotations.</p>}
+      {otherPapers.length > 0 && <div class="more-papers">{otherPapers.map((paper) => <article><p class="eyebrow">{paper.data.venue} · {paper.data.paperYear}</p><h3><a href={`/${paper.data.slug}`}>{paper.data.title}</a></h3><p>{paper.data.description}</p><a class="text-link" href={`/${paper.data.slug}`}>Read the annotation →</a></article>)}</div>}
+    </section>
 
-      <ol class="process-list">
-        <li>
-          <span>01</span>
-          <h3>Paper</h3>
-          <p>Claims, equations, and architecture are explained in the order needed to follow the argument.</p>
-        </li>
-        <li>
-          <span>02</span>
-          <h3>Code</h3>
-          <p>Excerpts come from runnable, tested implementations whose variable names follow the paper.</p>
-        </li>
-        <li>
-          <span>03</span>
-          <h3>Interactive figures</h3>
-          <p>Focused demonstrations make mechanisms such as attention and geometric updates easier to inspect.</p>
-        </li>
+    <section class="how" id="how-it-works" aria-labelledby="how-title">
+      <div class="section-heading"><div><p class="eyebrow">About the annotations</p><h2 id="how-title">What’s in an annotation?</h2></div><p class="section-description">The explanations sit alongside code excerpts and figures, with links to the original paper and the full implementation.</p></div>
+      <ol class="learning-path">
+        <li><span class="feature-number">01 / EXPLANATIONS</span><h3>The math and architecture</h3><p>Biological background, notation, and explanations of the main operations. Equations use the same symbols as the paper wherever possible.</p></li>
+        <li><span class="feature-number">02 / CODE</span><h3>PyTorch code</h3><p>Excerpts from a runnable implementation, with tensor shapes and references to the supplement. Each excerpt links to its source.</p></li>
+        <li><span class="feature-number">03 / FIGURES</span><h3>Interactive examples</h3><p>Controls for stepping through attention and inspecting coordinate frames, plus a 3D view of a protein during training.</p></li>
       </ol>
+      <a class="text-link method-link" href="/about">About the annotations <span aria-hidden="true">→</span></a>
+    </section>
 
-      <p class="process-link"><a href="/about">Read more about the method <span aria-hidden="true">→</span></a></p>
+    <section class="practice" aria-labelledby="practice-title">
+      <div class="practice-heading"><p class="eyebrow">BioTorch</p><h2 id="practice-title">Practice the operations<br /> in PyTorch.</h2></div>
+      <div class="practice-copy"><p>BioTorch has coding exercises for attention, protein geometry, and other operations used in biological AI. Write a function, run it, and check your results against the tests.</p><a class="button-primary" href="https://biotorch.chrishayduk.com">Practice on BioTorch <span aria-hidden="true">↗</span></a></div>
     </section>
   </div>
 </BaseLayout>
 
 <style>
-  .home {
-    width: min(100% - 3rem, 72rem);
-    margin-inline: auto;
-  }
-
-  .introduction {
-    max-width: 53rem;
-    padding-block: clamp(4.5rem, 9vw, 7.5rem);
-  }
-
-  .section-label {
-    margin: 0 0 1rem;
-    color: var(--accent);
-    font-family: var(--font-sans);
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-  }
-
-  .introduction h1 {
-    margin: 0;
-    font-size: clamp(3rem, 6vw, 4.75rem);
-    font-weight: 500;
-    letter-spacing: -0.045em;
-    line-height: 1;
-  }
-
-  .introduction-lede {
-    max-width: 42rem;
-    margin: 1.5rem 0 0;
-    font-size: clamp(1.25rem, 2.3vw, 1.6rem);
-    line-height: 1.45;
-  }
-
-  .introduction-note {
-    max-width: 43rem;
-    margin: 1.25rem 0 0;
-    color: var(--fg-muted);
-    font-size: 1rem;
-    line-height: 1.7;
-  }
-
-  .library {
-    padding-block: clamp(3.5rem, 7vw, 5.5rem);
-    border-top: 1px solid var(--rule-strong);
-  }
-
-  .library-heading {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 2rem;
-    margin-bottom: 1.5rem;
-  }
-
-  .library-heading h2 {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 650;
-  }
-
-  .library-heading p {
-    margin: 0;
-    color: var(--fg-muted);
-    font-family: var(--font-sans);
-    font-size: 0.75rem;
-  }
-
-  .paper-entry {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 18rem;
-    border-block: 1px solid var(--rule);
-  }
-
-  .paper-copy {
-    padding: clamp(2rem, 5vw, 3.5rem) clamp(2rem, 5vw, 4rem) clamp(2rem, 5vw, 3.5rem) 0;
-  }
-
-  .paper-citation {
-    margin: 0 0 1rem;
-    color: var(--fg-muted);
-    font-family: var(--font-sans);
-    font-size: 0.76rem;
-    line-height: 1.5;
-  }
-
-  .paper-entry h3 {
-    max-width: 14ch;
-    margin: 0;
-    font-size: clamp(2.25rem, 4.5vw, 3.6rem);
-    font-weight: 500;
-    letter-spacing: -0.035em;
-    line-height: 1.05;
-  }
-
-  .paper-entry h3 a {
-    color: var(--fg);
-    text-decoration: none;
-  }
-
-  .paper-entry h3 a:hover {
-    color: var(--accent);
-  }
-
-  .paper-description {
-    max-width: 42rem;
-    margin: 1.25rem 0 0;
-    color: var(--fg-muted);
-    font-size: 1rem;
-    line-height: 1.65;
-  }
-
-  .paper-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-top: 1.75rem;
-    font-family: var(--font-sans);
-  }
-
-  .paper-links a {
-    display: inline-flex;
-    min-height: 2.75rem;
-    align-items: center;
-    gap: 0.8rem;
-    padding: 0 1rem;
-    font-size: 0.78rem;
-    font-weight: 650;
-    text-decoration: none;
-  }
-
-  .primary-link {
-    background: var(--fg);
-    color: var(--bg);
-  }
-
-  .primary-link:hover {
-    background: var(--accent);
-    color: var(--surface-strong);
-  }
-
-  .secondary-link {
-    border: 1px solid var(--rule);
-    color: var(--fg);
-  }
-
-  .secondary-link:hover {
-    border-color: var(--rule-strong);
-    color: var(--fg);
-  }
-
-  .paper-details {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    align-content: stretch;
-    margin: 0;
-    border-left: 1px solid var(--rule);
-  }
-
-  .paper-details div {
-    display: flex;
-    min-height: 8rem;
-    flex-direction: column;
-    justify-content: space-between;
-    padding: 1.25rem;
-    border-right: 1px solid var(--rule);
-    border-bottom: 1px solid var(--rule);
-  }
-
-  .paper-details div:nth-child(even) { border-right: 0; }
-  .paper-details div:nth-last-child(-n + 2) { border-bottom: 0; }
-
-  .paper-details dt {
-    color: var(--fg-muted);
-    font-family: var(--font-sans);
-    font-size: 0.66rem;
-    line-height: 1.35;
-  }
-
-  .paper-details dd {
-    margin: 0;
-    font-size: 1.7rem;
-    line-height: 1;
-  }
-
-  .process {
-    display: grid;
-    grid-template-columns: minmax(15rem, 0.65fr) 1.35fr;
-    gap: clamp(3rem, 8vw, 7rem);
-    padding-block: clamp(4.5rem, 9vw, 7.5rem);
-    border-top: 1px solid var(--rule-strong);
-  }
-
-  .process-heading h2 {
-    margin: 0;
-    font-size: clamp(2rem, 3.5vw, 2.8rem);
-    font-weight: 500;
-    letter-spacing: -0.03em;
-    line-height: 1.1;
-  }
-
-  .process-heading > p:last-child {
-    margin: 1rem 0 0;
-    color: var(--fg-muted);
-    font-size: 0.95rem;
-    line-height: 1.65;
-  }
-
-  .process-list {
-    margin: 0;
-    padding: 0;
-    border-top: 1px solid var(--rule);
-    list-style: none;
-  }
-
-  .process-list li {
-    display: grid;
-    grid-template-columns: 2.5rem minmax(8rem, 0.5fr) 1fr;
-    gap: 1rem;
-    padding: 1.6rem 0;
-    border-bottom: 1px solid var(--rule);
-  }
-
-  .process-list span {
-    color: var(--accent);
-    font-family: var(--font-mono);
-    font-size: 0.65rem;
-  }
-
-  .process-list h3 {
-    margin: 0;
-    font-size: 1.1rem;
-    font-weight: 600;
-  }
-
-  .process-list p {
-    margin: 0;
-    color: var(--fg-muted);
-    font-size: 0.9rem;
-    line-height: 1.6;
-  }
-
-  .process-link {
-    grid-column: 2;
-    margin: -1rem 0 0;
-    font-family: var(--font-sans);
-    font-size: 0.78rem;
-    font-weight: 650;
-  }
-
-  .process-link a { text-decoration: none; }
-
-  .empty-state {
-    padding-block: 3rem;
-    border-block: 1px solid var(--rule);
-    color: var(--fg-muted);
-  }
-
-  @media (max-width: 800px) {
-    .paper-entry { grid-template-columns: 1fr; }
-    .paper-copy { padding-right: 0; }
-    .paper-details { border-top: 1px solid var(--rule); border-left: 0; }
-    .process { grid-template-columns: 1fr; gap: 2.5rem; }
-    .process-link { grid-column: 1; margin-top: -0.5rem; }
-  }
-
-  @media (max-width: 560px) {
-    .home { width: min(100% - 2rem, 72rem); }
-    .introduction { padding-block: 4rem; }
-    .introduction h1 { font-size: 3rem; }
-    .paper-entry h3 { font-size: 2.35rem; }
-    .paper-links { align-items: stretch; flex-direction: column; }
-    .paper-links a { justify-content: center; }
-    .paper-details div { min-height: 6.5rem; padding: 1rem; }
-    .process-list li { grid-template-columns: 2rem 1fr; }
-    .process-list p { grid-column: 2; }
-  }
+  .home { width: min(100% - 6rem, 74rem); margin-inline: auto; }
+  .hero { display: grid; grid-template-columns: 1.15fr 1fr; align-items: center; gap: clamp(2.5rem, 6vw, 5.5rem); padding: 5rem 0 4.25rem; }
+  .hero .eyebrow { margin-bottom: 1.5rem; }
+  .hero h1 { margin: 0; font-size: clamp(2.7rem, 4.6vw, 4rem); line-height: 1.08; font-weight: 600; letter-spacing: -0.055em; }
+  .hero h1 span { color: var(--accent); }
+  .hero-description { max-width: 44ch; color: var(--fg-muted); font-size: 1.02rem; line-height: 1.8; margin: 1.6rem 0 1.8rem; }
+  .hero-actions, .paper-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 1.5rem; }
+  .text-link { display: inline-flex; align-items: center; min-height: 2.75rem; gap: 0.7rem; font-size: 0.83rem; font-weight: 600; text-decoration: none; }
+  .text-link:hover { text-decoration: underline; }
+  .hero-note { font-size: 0.72rem; color: var(--fg-muted); margin: 1rem 0 0; }
+  .model-preview { margin: 0; border: 1px solid var(--rule); border-radius: 0.7rem; background: var(--surface-strong); box-shadow: 0 14px 36px #152d2806; overflow: hidden; }
+  .preview-heading { display: flex; align-items: center; gap: 0.6rem; padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--rule); font-size: 0.67rem; color: var(--fg-muted); }
+  .status-dot { width: 0.45rem; height: 0.45rem; background: var(--accent); border-radius: 50%; }
+  .preview-label { margin-left: auto; font-family: var(--font-mono); font-size: 0.59rem; }
+  .preview-sequence { padding: 1.4rem 1.5rem 0; }
+  .stage-label { display: flex; justify-content: space-between; gap: 0.75rem; color: var(--fg-muted); font-size: 0.58rem; font-family: var(--font-mono); letter-spacing: 0.06em; }
+  .stage-label span:last-child { letter-spacing: 0; }
+  .sequence { display: flex; gap: 0.3rem; margin-top: 0.8rem; }
+  .sequence > span { display: grid; place-items: center; flex: 1; min-width: 0; height: 1.9rem; border-radius: 3px; background: var(--surface); font: 500 0.7rem/1 var(--font-mono); color: var(--accent); }
+  .sequence > .highlight { background: var(--accent-soft); }
+  .sequence > .sequence-ellipsis { flex: 0.5; background: transparent; }
+  .flow-arrow { padding: 0.4rem 0; text-align: center; color: var(--rule-strong); font: 400 1.3rem/1.4 var(--font-sans); }
+  .preview-model { margin: 0 1.5rem; padding: 1rem; display: flex; align-items: center; gap: 1rem; border: 1px solid var(--rule); background: var(--surface); border-radius: 0.4rem; }
+  .matrix { display: grid; grid-template-columns: repeat(6, 6px); gap: 2px; flex: 0 0 auto; }
+  .matrix i { height: 6px; background: #d5e3c5; border-radius: 1px; }.matrix .mid { background: #a6c966; }.matrix .strong { background: #1e6750; }
+  .preview-model p { margin: 0.4rem 0 0.25rem; font-size: 0.75rem; font-weight: 600; letter-spacing: -0.025em; }
+  .preview-model p span { color: var(--fg-muted); margin: 0 0.2rem; }
+  .model-detail { font-size: 0.61rem; color: var(--fg-muted); line-height: 1.5; display: block; }
+  .preview-structure { position: relative; display: grid; grid-template-columns: 1fr 1.1fr; align-items: center; padding: 0 1.5rem 0.8rem; }
+  .preview-structure p { margin: 0.55rem 0; font-size: 1.3rem; letter-spacing: -0.045em; line-height: 1.25; font-weight: 600; }
+  .structure-note { font-size: 0.55rem; color: var(--fg-muted); line-height: 1.5; display: block; }
+  .preview-structure :global(svg) { width: 100%; height: 9.5rem; overflow: visible; }
+  .preview-footer { display: flex; justify-content: space-between; background: var(--surface); padding: 0.9rem 1.5rem; border-top: 1px solid var(--rule); color: var(--accent); font-size: 0.65rem; }
+  .topics { display: flex; align-items: center; justify-content: space-between; gap: 1.5rem; padding: 1.4rem 0; border-block: 1px solid var(--rule); }
+  .topics > span { color: var(--fg-muted); font-size: 0.72rem; }.topics ul { display: flex; flex-wrap: wrap; gap: 1.5rem; list-style: none; padding: 0; margin: 0; font-size: 0.73rem; font-weight: 600; color: var(--accent); }
+  .library { padding: 4.5rem 0; scroll-margin-top: calc(var(--header-height) + 1rem); }
+  .section-heading { display: flex; justify-content: space-between; align-items: end; gap: 2rem; margin-bottom: 2rem; }.section-heading .eyebrow { margin-bottom: 0.9rem; }
+  .section-heading h2, .practice h2 { margin: 0; font-size: clamp(1.7rem, 2.7vw, 2.15rem); line-height: 1.2; letter-spacing: -0.045em; font-weight: 600; }
+  .library-count { margin: 0 0 0.15rem; font-size: 0.7rem; color: var(--fg-muted); white-space: nowrap; }
+  .featured-paper { display: grid; grid-template-columns: 1.25fr 1fr; background: var(--surface-strong); border: 1px solid var(--rule); border-radius: 0.65rem; overflow: hidden; }
+  .paper-overview { padding: 2.25rem; }.paper-topline { display: flex; align-items: center; flex-wrap: wrap; gap: 0.85rem; color: var(--fg-muted); font-size: 0.65rem; }
+  .paper-badge { padding: 0.35rem 0.55rem; border-radius: 4px; color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+  .paper-overview h3 { margin: 1.25rem 0 0.85rem; font-size: clamp(1.65rem, 2.6vw, 2.2rem); font-weight: 600; letter-spacing: -0.055em; line-height: 1.2; }.paper-overview h3 a { color: var(--fg); text-decoration: none; }.paper-overview h3 a:hover { color: var(--accent); }
+  .paper-description { margin: 0; font-size: 0.89rem; line-height: 1.8; color: var(--fg-muted); max-width: 51ch; }.paper-citation { color: var(--fg-muted); font-size: 0.65rem; margin: 1rem 0 0; line-height: 1.6; }
+  .paper-stats { display: flex; gap: 1.75rem; margin: 1.65rem 0; padding: 1.3rem 0; border-block: 1px solid var(--rule); }.paper-stats > div { display: flex; flex-direction: column-reverse; gap: 0.4rem; }.paper-stats dt { font-size: 0.6rem; color: var(--fg-muted); }.paper-stats dd { font-size: 1.5rem; letter-spacing: -0.05em; line-height: 1; font-weight: 600; margin: 0; }
+  .reading-note { font-size: 0.65rem; color: var(--fg-muted); margin: 0.9rem 0 0; line-height: 1.6; }
+  .chapter-preview { background: color-mix(in oklab, var(--surface) 58%, var(--surface-strong)); border-left: 1px solid var(--rule); padding: 2.25rem 1.75rem; display: flex; flex-direction: column; }.chapter-preview > .eyebrow { font-size: 0.6rem; margin-bottom: 0.65rem; }
+  .chapter-preview ol { padding: 0; margin: 0; list-style: none; flex: 1; }.chapter-preview li + li { border-top: 1px solid var(--rule); }.chapter-preview li a { display: flex; gap: 0.9rem; align-items: baseline; padding: 1.15rem 0.25rem; color: var(--fg); text-decoration: none; border-radius: 4px; }.chapter-preview li a:hover { background: var(--accent-soft); }
+  .chapter-number { font: 400 0.61rem/1.5 var(--font-mono); color: var(--accent); }.chapter-preview strong { font-size: 0.8rem; font-weight: 600; }.chapter-description { display: block; color: var(--fg-muted); font-size: 0.68rem; line-height: 1.6; margin-top: 0.25rem; max-width: 30ch; }.chapter-arrow { margin-left: auto; font-size: 0.8rem; color: var(--accent); }
+  .all-chapters { display: flex; justify-content: space-between; padding: 1rem 0.25rem 0; border-top: 1px solid var(--rule); font-size: 0.72rem; font-weight: 600; text-decoration: none; }.all-chapters:hover { text-decoration: underline; }
+  .more-papers { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1.5rem; margin-top: 1.5rem; }.more-papers article { padding: 2rem; border: 1px solid var(--rule); border-radius: 0.6rem; }.more-papers p:not(.eyebrow) { color: var(--fg-muted); line-height: 1.7; font-size: 0.9rem; }
+  .how { padding: 0.75rem 0 4rem; scroll-margin-top: calc(var(--header-height) + 2rem); }.section-description { max-width: 36ch; margin: 0; color: var(--fg-muted); font-size: 0.85rem; line-height: 1.75; }
+  .learning-path { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.5rem; padding: 0; margin: 2.5rem 0 1.25rem; list-style: none; }.learning-path li { border-top: 1px solid var(--rule-strong); padding-top: 1.4rem; }.feature-number { color: var(--accent); font: 400 0.62rem/1.3 var(--font-mono); letter-spacing: 0.05em; }.learning-path h3 { margin: 1.05rem 0 0.7rem; font-size: 1.05rem; letter-spacing: -0.025em; font-weight: 600; }.learning-path p { margin: 0; font-size: 0.83rem; line-height: 1.8; color: var(--fg-muted); }
+  .method-link { font-size: 0.75rem; margin-top: 0.4rem; }
+  .practice { display: grid; grid-template-columns: 1fr 1.5fr; gap: 4rem; align-items: start; padding: 2.65rem; margin-bottom: 4.5rem; background: var(--surface); border: 1px solid var(--rule); border-radius: 0.6rem; }.practice .eyebrow { font-size: 0.62rem; margin-bottom: 1rem; }.practice-copy p { margin: 0 0 1.3rem; font-size: 0.86rem; line-height: 1.8; color: var(--fg-muted); }
+  @media (min-width: 1280px) { .desktop-break { display: none; } }
+  @media (max-width: 1050px) { .home { width: calc(100% - 4rem); }.hero { gap: 2rem; padding: 4rem 0 3rem; }.hero h1 { font-size: 3rem; }.hero-description { font-size: 0.95rem; }.preview-heading { padding-inline: 1rem; }.preview-label { display: none; }.preview-model { margin-inline: 1rem; padding: 0.8rem; gap: 0.7rem; }.preview-sequence, .preview-structure { padding-inline: 1rem; }.preview-model p { font-size: 0.66rem; }.paper-overview { padding: 1.75rem; }.chapter-preview { padding: 1.75rem 1.3rem; }.topics { align-items: flex-start; flex-direction: column; gap: 0.8rem; }.topics ul { gap: 1.2rem; }.practice { gap: 2rem; } }
+  @media (max-width: 760px) { .home { width: calc(100% - 2.5rem); }.hero { grid-template-columns: 1fr; padding-top: 3rem; gap: 2.5rem; }.hero h1 { font-size: clamp(2.7rem, 8vw, 3.65rem); }.desktop-break { display: none; }.hero-description { max-width: 45ch; }.model-preview { width: 100%; max-width: 32rem; }.preview-heading { padding-inline: 1.25rem; }.preview-label { display: block; }.preview-model { margin-inline: 1.25rem; padding: 1rem; }.preview-model p { font-size: 0.76rem; }.preview-sequence, .preview-structure { padding-inline: 1.25rem; }.preview-structure :global(svg) { height: 9rem; }.library { padding: 3.25rem 0; }.section-heading { align-items: start; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem; }.featured-paper { grid-template-columns: 1fr; }.paper-overview { padding: 1.5rem; }.paper-overview h3 { font-size: 1.9rem; }.chapter-preview { border-left: 0; border-top: 1px solid var(--rule); padding: 1.5rem; }.chapter-description { max-width: none; }.learning-path { grid-template-columns: 1fr; gap: 1.5rem; margin-top: 1.75rem; }.learning-path h3 { margin-top: 0.75rem; }.section-description { max-width: 48ch; }.how { padding-bottom: 2.5rem; }.practice { grid-template-columns: 1fr; gap: 1.25rem; padding: 1.5rem; margin-bottom: 3rem; }.practice h2 br { display: none; }.practice-copy .button-primary { font-size: 0.8rem; }.topics ul { gap: 0.75rem 1.1rem; font-size: 0.7rem; } }
+  @media (max-width: 380px) { .hero h1 { font-size: 2.55rem; }.hero-actions { gap: 0.6rem 1rem; }.preview-heading { font-size: 0.58rem; }.preview-label { font-size: 0.5rem; }.paper-stats { gap: 1.2rem; }.paper-actions { gap: 0.5rem 1rem; }.preview-model p { font-size: 0.63rem; }.preview-model { gap: 0.6rem; }.model-detail { font-size: 0.56rem; } }
 </style>

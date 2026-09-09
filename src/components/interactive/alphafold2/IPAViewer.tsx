@@ -1,32 +1,11 @@
-import { Canvas, useFrame } from '@react-three/fiber';
+import { Canvas } from '@react-three/fiber';
 import { OrbitControls, Line } from '@react-three/drei';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import * as THREE from 'three';
 
-/**
- * IPAViewer — a minimal visualization of the central SE(3) claim behind
- * Invariant Point Attention. We lay out a short synthetic chain of "residues"
- * in 3D (positions + local frames), and for a user-chosen query residue we
- * compute attention weights to every other residue using a distance-based
- * score evaluated *in the query's local frame*:
- *
- *    s(i, j) = -‖ T_i^{-1} · t_j ‖² / σ²  +  (sequence-distance penalty)
- *
- * Attention weights are then a softmax over j. The weights are drawn as
- * connecting lines whose thickness and opacity scale with the weight.
- *
- * The pedagogical point is the "rotate scene" toggle. When the scene is
- * auto-rotating, the connecting lines rotate *along with* the residues, but
- * their thicknesses don't change — the attention pattern is an invariant of
- * the configuration, not of the viewer's orientation. That is the SE(3)
- * invariance of IPA made visible.
- *
- * The score function here is a stand-in for the real three-term IPA score
- * (scalar Q·K, pair bias, point-distance term). We drop the first two terms
- * since they aren't pedagogically illuminating in a synthetic demo, and we
- * keep the point-distance term because that's the one that carries the
- * geometric story.
- */
+/** A simplified IPA distance score on residue origins. Rigid transformations
+ * are applied to positions AND local frames before attention is recomputed.
+ * The scalar Q·K and pair-bias terms of full IPA are omitted. */
 
 const N = 14;
 const SIGMA = 1.6;
@@ -105,7 +84,6 @@ function ChainScene({
   setQueryIdx,
   weights,
   topIndices,
-  spinning,
   showFrames,
 }: {
   chain: Residue[];
@@ -113,14 +91,8 @@ function ChainScene({
   setQueryIdx: (i: number) => void;
   weights: number[];
   topIndices: Set<number>;
-  spinning: boolean;
   showFrames: boolean;
 }) {
-  const groupRef = useRef<THREE.Group>(null);
-  useFrame((_, dt) => {
-    if (!groupRef.current) return;
-    if (spinning) groupRef.current.rotation.y += dt * 0.35;
-  });
   // Normalize against the top-1 weight so the thickest line always hits the
   // visual top of the scale, no matter how sharp or flat the overall
   // distribution is.
@@ -128,11 +100,11 @@ function ChainScene({
   const qPos = chain[queryIdx].position;
 
   return (
-    <group ref={groupRef}>
+    <group>
       {/* Connecting backbone line */}
       <Line
         points={chain.map((r) => r.position.toArray() as [number, number, number])}
-        color="var(--fg-muted-fallback, #888)"
+        color="#64716b"
         lineWidth={1}
         transparent
         opacity={0.35}
@@ -148,7 +120,7 @@ function ChainScene({
           <Line
             key={`att-${j}`}
             points={[qPos.toArray() as [number, number, number], r.position.toArray() as [number, number, number]]}
-            color="#e8a1a1"
+            color="#1e6750"
             lineWidth={1 + rel * 4.5}
             transparent
             opacity={0.35 + rel * 0.6}
@@ -183,8 +155,8 @@ function ChainScene({
             >
               <sphereGeometry args={[scale, 20, 20]} />
               <meshStandardMaterial
-                color={isQuery ? '#e64b5c' : '#a8adb5'}
-                emissive={isQuery ? '#401418' : '#000000'}
+                color={isQuery ? '#b55f2c' : inTop ? '#a6c966' : '#88998d'}
+                emissive={isQuery ? '#412713' : '#000000'}
                 emissiveIntensity={glow * 0.6}
                 metalness={0.2}
                 roughness={0.5}
@@ -199,192 +171,158 @@ function ChainScene({
 }
 
 export default function IPAViewer() {
-  const chain = useMemo(buildChain, []);
+  const referenceChain = useMemo(buildChain, []);
   const [queryIdx, setQueryIdx] = useState(6);
-  const [spinning, setSpinning] = useState(true);
-  const [showFrames, setShowFrames] = useState(true);
+  const [rotDeg, setRotDeg] = useState(0);
+  const [shift, setShift] = useState(0);
+  const [playing, setPlaying] = useState(false);
+  const [showFrames, setShowFrames] = useState(false);
+  const chooseQuery = (index: number) => { setPlaying(false); setQueryIdx(index); };
+  const choosePose = (degrees: number, translation: number) => {
+    setPlaying(false); setRotDeg(degrees); setShift(translation);
+  };
 
-  // Respect reduced-motion: pause auto-rotation and let the user drive.
   useEffect(() => {
-    if (typeof window === 'undefined' || !window.matchMedia) return;
-    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (mq.matches) setSpinning(false);
+    const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const pauseForPreference = () => { if (preference.matches) setPlaying(false); };
+    const pauseWhenHidden = () => { if (document.hidden) setPlaying(false); };
+    pauseForPreference();
+    preference.addEventListener('change', pauseForPreference);
+    document.addEventListener('visibilitychange', pauseWhenHidden);
+    return () => {
+      preference.removeEventListener('change', pauseForPreference);
+      document.removeEventListener('visibilitychange', pauseWhenHidden);
+    };
   }, []);
 
+  // Animate the actual rigid transformation, then recompute attention from
+  // the transformed positions and frames. Camera motion is a separate action.
+  useEffect(() => {
+    if (!playing) return;
+    let frame = 0;
+    let last = 0;
+    const tick = (time: number) => {
+      if (!last) last = time;
+      const elapsed = time - last;
+      if (elapsed >= 32) {
+        setRotDeg((degrees) => (degrees + Math.min(elapsed, 100) * 0.028) % 360);
+        last = time;
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [playing]);
+
+  const chain = useMemo(() => {
+    const rotation = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), rotDeg * Math.PI / 180);
+    const translation = new THREE.Vector3(0.45, 0.25, -0.3).multiplyScalar(shift);
+    return referenceChain.map((residue) => ({
+      position: residue.position.clone().applyQuaternion(rotation).add(translation),
+      quaternion: rotation.clone().multiply(residue.quaternion),
+    }));
+  }, [referenceChain, rotDeg, shift]);
+  const referenceWeights = useMemo(() => computeAttention(referenceChain, queryIdx), [referenceChain, queryIdx]);
   const weights = useMemo(() => computeAttention(chain, queryIdx), [chain, queryIdx]);
-
-  const topK = useMemo(() => {
-    const idx = weights
-      .map((w, i) => ({ i, w }))
-      .filter((x) => x.i !== queryIdx)
-      .sort((a, b) => b.w - a.w)
-      .slice(0, 5);
-    return idx;
-  }, [weights, queryIdx]);
-
-  const topIndices = useMemo(() => new Set(topK.map((e) => e.i)), [topK]);
+  const maxWeightChange = Math.max(...weights.map((weight, i) => Math.abs(weight - referenceWeights[i])));
+  const topK = useMemo(() => weights
+    .map((w, i) => ({ i, w }))
+    .filter((entry) => entry.i !== queryIdx)
+    // Resolve numerical ties by index so an invariant animation does not
+    // flicker between equal-weight keys at the top-five boundary.
+    .sort((a, b) => Math.abs(a.w - b.w) < 1e-12 ? a.i - b.i : b.w - a.w)
+    .slice(0, 5), [weights, queryIdx]);
+  const topIndices = useMemo(() => new Set(topK.map((entry) => entry.i)), [topK]);
 
   return (
     <figure className="ipa-root">
+      <div className="ipa-intro"><strong>Invariant point attention</strong><span>Click a residue, drag the scene, or rotate the chain.</span></div>
+      <div className="ipa-experiment" role="group" aria-label="Rigid transformation controls">
+        <button type="button" onClick={() => setPlaying((current) => !current)} aria-pressed={playing}>
+          {playing ? 'Pause rotation' : 'Play rotation'}
+        </button>
+        <button type="button" onClick={() => choosePose(0, 0)}>Reset</button>
+        <button type="button" onClick={() => choosePose(90, 1)}>Rotate + translate</button>
+      </div>
       <div className="ipa-layout">
-        <div className="ipa-canvas">
-          <Canvas camera={{ position: [3.2, 0.5, 3.2], fov: 42 }}>
+        <div className="ipa-canvas" onPointerDown={() => setPlaying(false)}>
+          <Canvas camera={{ position: [5, 1.8, 5], fov: 42 }}>
             <ambientLight intensity={0.55} />
             <directionalLight position={[4, 6, 5]} intensity={0.7} />
-            <ChainScene
-              chain={chain}
-              queryIdx={queryIdx}
-              setQueryIdx={setQueryIdx}
-              weights={weights}
-              topIndices={topIndices}
-              spinning={spinning}
-              showFrames={showFrames}
-            />
-            <OrbitControls makeDefault enablePan={false} enableDamping />
+            <ChainScene chain={chain} queryIdx={queryIdx} setQueryIdx={chooseQuery} weights={weights} topIndices={topIndices} showFrames={showFrames} />
+            <OrbitControls makeDefault target={[0, 0.4, 0]} enablePan={false} enableDamping onStart={() => setPlaying(false)} />
           </Canvas>
-          <div className="ipa-hud">
-            Query residue: <strong>i = {queryIdx}</strong>
-            <span className="ipa-hud-sep">•</span>
-            Click any sphere to re-select
+          <div className="ipa-hud">Orange: query {queryIdx + 1} · Green: strongest connections</div>
+          <div className="ipa-canvas-controls">
+            <label><input type="checkbox" checked={showFrames} onChange={(event) => { setPlaying(false); setShowFrames(event.currentTarget.checked); }} /> Local axes</label>
+            {showFrames && <span>x red · y green · z blue</span>}
           </div>
         </div>
-
         <div className="ipa-panel">
-          <div className="ipa-toggles">
-            <label className="ipa-toggle">
-              <input type="checkbox" checked={spinning} onChange={(e) => setSpinning(e.currentTarget.checked)} />
-              <span>Auto-rotate scene</span>
-            </label>
-            <label className="ipa-toggle">
-              <input type="checkbox" checked={showFrames} onChange={(e) => setShowFrames(e.currentTarget.checked)} />
-              <span>Show local frames</span>
-            </label>
-          </div>
-
+          <label className="ipa-query"><span>Query residue</span>
+            <select value={queryIdx} onChange={(event) => chooseQuery(Number(event.currentTarget.value))}>
+              {referenceChain.map((_, i) => <option key={i} value={i}>Residue {i + 1} (i = {i})</option>)}
+            </select>
+          </label>
+          <label className="ipa-slider">
+            <span>Global rotation <output>{rotDeg.toFixed(0)}°</output></span>
+            <input type="range" min={0} max={360} step={1} value={rotDeg} onChange={(event) => { setPlaying(false); setRotDeg(Number(event.currentTarget.value)); }} aria-label="Global rotation of the IPA chain" />
+          </label>
+          <label className="ipa-slider">
+            <span>Global translation <output>{shift.toFixed(2)}</output></span>
+            <input type="range" min={0} max={1} step={0.01} value={shift} onChange={(event) => { setPlaying(false); setShift(Number(event.currentTarget.value)); }} aria-label="Global translation of the IPA chain" />
+          </label>
           <div className="ipa-weights">
-            <div className="ipa-weights-head">Top attention from residue {queryIdx}</div>
-            {topK.map(({ i, w }) => {
-              const pct = w / topK[0].w;
-              return (
-                <div key={i} className="ipa-weight-row" onClick={() => setQueryIdx(i)}>
-                  <span className="ipa-weight-j">→ {i}</span>
-                  <span className="ipa-weight-bar" style={{ width: `${(pct * 100).toFixed(1)}%` }} />
-                  <span className="ipa-weight-val">{w.toFixed(3)}</span>
-                </div>
-              );
-            })}
+            <div className="ipa-weights-head">Top five weights · click to change query</div>
+            {topK.map(({ i, w }) => (
+              <button key={i} type="button" className="ipa-weight-row" onClick={() => chooseQuery(i)} aria-label={`Use residue ${i + 1} as query; current attention weight ${(100 * w).toFixed(1)} percent`}>
+                <span className="ipa-weight-j">→ {i + 1}</span>
+                <span className="ipa-weight-track"><span className="ipa-weight-bar" style={{ width: `${(w / topK[0].w * 100).toFixed(1)}%` }} /></span>
+                <span className="ipa-weight-val">{(100 * w).toFixed(1)}%</span>
+              </button>
+            ))}
           </div>
-
-          <p className="ipa-note">
-            The attention weight for <em>(i → j)</em> depends on <em>T<sub>i</sub><sup>−1</sup> · t<sub>j</sub></em>
-            — the position of residue <em>j</em> as seen from residue <em>i</em>'s local frame. This is
-            invariant under any global rotation of the chain, which is why the connecting lines thicken
-            and fade <em>only</em> when you change the query, not when the scene spins.
-          </p>
+          <div className="ipa-result" role="status" aria-live={playing ? 'off' : 'polite'}>
+            Max weight change after rigid motion: <strong>{maxWeightChange < 1e-12 ? '< 10⁻¹²' : maxWeightChange.toExponential(2)}</strong>
+          </div>
         </div>
       </div>
-
+      <figcaption className="ipa-note">
+        The demo rotates or translates both positions and local frames, then recomputes the weights.
+        This toy score uses residue-origin distances and a sequence penalty, not full IPA's learned points,
+        scalar term, or pair bias. Bars scale to the largest weight; percentages include all 13 other residues.
+      </figcaption>
       <style>{`
-        .ipa-root {
-          margin: 1.5rem 0;
-          border: 1px solid var(--rule);
-          border-radius: 6px;
-          padding: 0.9rem 1rem 1rem;
-          background: color-mix(in oklab, var(--bg) 94%, var(--rule) 6%);
-          font-family: var(--font-sans);
-        }
-        .ipa-layout {
-          display: grid;
-          grid-template-columns: 1fr;
-          gap: 1rem;
-        }
-        @media (min-width: 760px) {
-          .ipa-layout { grid-template-columns: 1.3fr 1fr; }
-        }
-        .ipa-canvas {
-          position: relative;
-          height: 420px;
-          border-radius: 4px;
-          background: linear-gradient(180deg, color-mix(in oklab, var(--bg) 88%, var(--rule) 12%), var(--bg));
-          overflow: hidden;
-          touch-action: none;
-        }
-        .ipa-hud {
-          position: absolute;
-          top: 0.55rem;
-          left: 0.7rem;
-          font-size: 0.78rem;
-          color: var(--fg-muted);
-          pointer-events: none;
-        }
-        .ipa-hud strong { color: var(--accent); font-weight: 600; }
-        .ipa-hud-sep { margin: 0 0.4rem; opacity: 0.5; }
-
-        .ipa-panel {
-          display: flex;
-          flex-direction: column;
-          gap: 0.9rem;
-          font-size: 0.88rem;
-        }
-        .ipa-toggles {
-          display: flex;
-          flex-direction: column;
-          gap: 0.3rem;
-        }
-        .ipa-toggle {
-          display: inline-flex;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
-          font-size: 0.85rem;
-        }
-
-        .ipa-weights {
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-          padding: 0.55rem 0.65rem;
-          border: 1px solid var(--rule);
-          border-radius: 4px;
-        }
-        .ipa-weights-head {
-          font-size: 0.72rem;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          color: var(--fg-muted);
-          margin-bottom: 0.3rem;
-        }
-        .ipa-weight-row {
-          display: grid;
-          grid-template-columns: 2.2rem 1fr 3rem;
-          align-items: center;
-          gap: 0.5rem;
-          cursor: pointer;
-          font-family: var(--font-mono);
-          font-size: 0.82rem;
-          padding: 0.15rem 0;
-        }
-        .ipa-weight-row:hover { color: var(--accent); }
-        .ipa-weight-j { color: var(--fg); }
-        .ipa-weight-bar {
-          display: inline-block;
-          height: 8px;
-          background: var(--accent);
-          border-radius: 2px;
-          opacity: 0.75;
-        }
-        .ipa-weight-val {
-          text-align: right;
-          color: var(--fg-muted);
-          font-variant-numeric: tabular-nums;
-        }
-
-        .ipa-note {
-          font-size: 0.82rem;
-          line-height: 1.55;
-          color: var(--fg-muted);
-          margin: 0;
-        }
+        .ipa-root { margin: 1.5rem 0; border: 1px solid var(--rule); border-radius: 6px; padding: 0.9rem 1rem 1rem; background: color-mix(in oklab, var(--bg) 94%, var(--rule) 6%); font-family: var(--font-sans); }
+        .ipa-intro { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.8rem; margin-bottom: 0.7rem; }
+        .ipa-intro strong { font-size: 0.95rem; color: var(--fg); }
+        .ipa-intro > span { font-size: 0.77rem; color: var(--fg-muted); }
+        .ipa-experiment { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.75rem; }
+        .ipa-experiment button { min-height: 2rem; padding: 0.4rem 0.65rem; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface-strong); color: var(--fg); font: inherit; font-size: 0.77rem; cursor: pointer; }
+        .ipa-experiment button:first-child { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+        .ipa-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+        @media (min-width: 760px) { .ipa-layout { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); } }
+        .ipa-canvas { position: relative; height: 420px; border-radius: 4px; background: linear-gradient(180deg, color-mix(in oklab, var(--bg) 88%, var(--rule) 12%), var(--bg)); overflow: hidden; touch-action: none; }
+        .ipa-hud { position: absolute; top: 0.65rem; left: 0.7rem; right: 0.7rem; color: var(--fg-muted); font-size: 0.71rem; line-height: 1.5; pointer-events: none; }
+        .ipa-canvas-controls { position: absolute; bottom: 0.65rem; left: 0.7rem; right: 0.7rem; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.7rem; color: var(--fg-muted); font-size: 0.71rem; }
+        .ipa-canvas-controls label { display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+        .ipa-panel { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; }
+        .ipa-query { display: grid; gap: 0.3rem; font-size: 0.77rem; color: var(--fg-muted); }
+        .ipa-query select { width: 100%; min-height: 2.2rem; padding: 0.35rem; border: 1px solid var(--rule); border-radius: 4px; background: var(--surface-strong); color: var(--fg); font: inherit; }
+        .ipa-slider { display: grid; gap: 0.2rem; color: var(--fg-muted); font-size: 0.77rem; }
+        .ipa-slider > span { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; }
+        .ipa-slider output { color: var(--accent); font-family: var(--font-mono); }
+        .ipa-slider input { min-width: 0; width: 100%; min-height: 1.5rem; accent-color: var(--accent); }
+        .ipa-weights-head { margin-bottom: 0.3rem; color: var(--fg-muted); font-size: 0.71rem; }
+        .ipa-weight-row { display: grid; width: 100%; grid-template-columns: 2.2rem minmax(0, 1fr) 3.2rem; align-items: center; gap: 0.5rem; padding: 0.35rem 0.2rem; border: 0; border-radius: 3px; background: transparent; font: 0.76rem var(--font-mono); cursor: pointer; }
+        .ipa-weight-row:hover { background: var(--accent-soft); }
+        .ipa-weight-j { color: var(--fg); text-align: left; }
+        .ipa-weight-track { display: block; height: 9px; overflow: hidden; background: var(--rule); border-radius: 2px; }
+        .ipa-weight-bar { display: block; height: 100%; background: var(--accent); border-radius: 2px; }
+        .ipa-weight-val { text-align: right; color: var(--fg-muted); font-variant-numeric: tabular-nums; }
+        .ipa-result { padding-top: 0.5rem; border-top: 1px solid var(--rule); font-size: 0.72rem; line-height: 1.5; color: var(--fg-muted); }
+        .ipa-result strong { color: var(--accent); white-space: nowrap; }
+        .ipa-note { margin-top: 0.8rem; color: var(--fg-muted); font-size: 0.76rem; line-height: 1.55; }
       `}</style>
     </figure>
   );

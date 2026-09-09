@@ -103,9 +103,9 @@ const jsonLd = {
       <summary>
         <span class="mobile-reader-label">
           <span class="mobile-reader-kicker">Current section</span>
-          <span id="mobile-current-section">Introduction</span>
+          <span id="mobile-current-section">Paper overview</span>
         </span>
-        <span class="mobile-reader-meta"><span data-reading-percent>0%</span> · Contents</span>
+        <span class="mobile-reader-meta"><span data-reading-percent>0%</span><span class="mobile-contents-toggle">Contents <span class="mobile-contents-chevron" aria-hidden="true">⌄</span></span></span>
       </summary>
       <div class="mobile-toc-panel">
         <div class="mobile-toc-head">
@@ -120,16 +120,26 @@ const jsonLd = {
   <div class="paper-shell" data-paper-slug={frontmatter.slug}>
     <aside class="paper-toc-column" aria-label="Reading navigation">
       <div class="paper-toc-intro">
-        <p>Contents</p>
-        <span><span data-reading-percent>0%</span> complete</span>
+        <a href="#paper-top">In this paper</a>
+        <span><span data-reading-percent>0%</span> read</span>
       </div>
+      <div class="toc-progress-track" aria-hidden="true"><span data-toc-progress></span></div>
       <TOC headings={headings} />
+      <a class="toc-back-top" href="#paper-top">Back to overview <span aria-hidden="true">↑</span></a>
     </aside>
 
     <article class="prose paper-article">
-      <PaperHeader frontmatter={frontmatter} chapterCount={chapterCount} />
-      <div class="paper-body">
+      <PaperHeader frontmatter={frontmatter} chapterCount={chapterCount} headings={headings} />
+      <div class="paper-body" id="paper-introduction">
         <slot />
+      </div>
+      <div class="paper-next-step">
+        <div>
+          <p class="paper-next-kicker">BioTorch exercises</p>
+          <h2>Try implementing the operations.</h2>
+          <p>Practice attention, protein geometry, and related operations in PyTorch, with tests to check your code.</p>
+        </div>
+        <a href="https://biotorch.chrishayduk.com" class="button-primary">Practice on BioTorch <span aria-hidden="true">↗</span></a>
       </div>
     </article>
 
@@ -139,11 +149,24 @@ const jsonLd = {
     (() => {
       const article = document.querySelector('.paper-article');
       const progressBar = document.getElementById('reading-progress-bar');
+      const tocProgress = document.querySelector('[data-toc-progress]');
       const percentLabels = document.querySelectorAll('[data-reading-percent]');
       const mobileCurrent = document.getElementById('mobile-current-section');
       const mobileDetails = document.getElementById('mobile-contents');
       const storageKey = `annotated-papers:${paperSlug}:last-section`;
       let queued = false;
+
+      // Offer the previous position before scrollspy records the current visit.
+      try {
+        const saved = JSON.parse(localStorage.getItem(storageKey) ?? 'null');
+        const resume = document.getElementById('paper-resume');
+        const label = document.getElementById('paper-resume-label');
+        if (saved?.id && saved?.text && document.getElementById(saved.id) && resume && label) {
+          resume.setAttribute('href', `#${saved.id}`);
+          label.textContent = saved.text;
+          resume.hidden = false;
+        }
+      } catch {}
 
       const updateProgress = () => {
         queued = false;
@@ -153,6 +176,7 @@ const jsonLd = {
         const ratio = end <= start ? 1 : Math.min(1, Math.max(0, (window.scrollY - start) / (end - start)));
         const percentage = Math.round(ratio * 100);
         if (progressBar) progressBar.style.transform = `scaleX(${ratio})`;
+        if (tocProgress instanceof HTMLElement) tocProgress.style.transform = `scaleX(${ratio})`;
         percentLabels.forEach((label) => { label.textContent = `${percentage}%`; });
       };
 
@@ -164,8 +188,9 @@ const jsonLd = {
 
       document.addEventListener('paper-section-change', (event) => {
         const detail = event.detail;
-        if (!detail?.id || !detail?.text) return;
+        if (!detail?.text) return;
         if (mobileCurrent) mobileCurrent.textContent = detail.text;
+        if (!detail.id) return;
         try { localStorage.setItem(storageKey, JSON.stringify(detail)); } catch {}
       });
 
@@ -173,6 +198,13 @@ const jsonLd = {
         link.addEventListener('click', () => {
           if (mobileDetails instanceof HTMLDetailsElement) mobileDetails.open = false;
         });
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && mobileDetails instanceof HTMLDetailsElement && mobileDetails.open) {
+          mobileDetails.open = false;
+          mobileDetails.querySelector('summary')?.focus();
+        }
       });
 
       window.addEventListener('scroll', scheduleProgress, { passive: true });
@@ -189,7 +221,7 @@ const jsonLd = {
     top: calc(var(--header-height) - 2px);
     left: 0;
     right: 0;
-    height: 2px;
+    height: 3px;
     pointer-events: none;
   }
 
@@ -217,12 +249,12 @@ const jsonLd = {
     z-index: 35;
     top: var(--header-height);
     border-bottom: 1px solid var(--rule);
-    background: var(--bg);
+    background: var(--surface-strong);
     font-family: var(--font-sans);
   }
 
   .mobile-reader-dock summary {
-    min-height: 3.3rem;
+    min-height: 3.75rem;
     padding: 0.55rem 1rem;
     display: flex;
     align-items: center;
@@ -251,13 +283,32 @@ const jsonLd = {
   }
   .mobile-reader-meta {
     flex: 0 0 auto;
-    color: var(--accent);
-    font-size: 0.7rem;
-    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    color: var(--fg-muted);
+    font-size: 0.65rem;
+    font-weight: 600;
+  }
+  .mobile-contents-toggle { display: flex; align-items: center; gap: 0.45rem; color: var(--accent); }
+  .mobile-contents-chevron { display: inline-block; font-size: 1.1rem; transition: transform 150ms ease; }
+  #mobile-contents[open] .mobile-contents-chevron { transform: rotate(180deg); }
+  .paper-toc-intro a { color: var(--fg); font-size: 0.75rem; font-weight: 600; text-decoration: none; }
+  .paper-toc-intro a:hover { color: var(--accent); }
+  .toc-progress-track { height: 3px; margin: -0.3rem 0 1.5rem; overflow: hidden; border-radius: 1rem; background: var(--rule); }
+  .toc-progress-track > span { display: block; width: 100%; height: 100%; background: var(--accent); transform: scaleX(0); transform-origin: left; }
+  .toc-back-top { display: flex; align-items: center; justify-content: space-between; min-height: 2.75rem; margin: 1.25rem 0 0; border-top: 1px solid var(--rule); color: var(--fg-muted); font: 500 0.7rem/1.5 var(--font-sans); text-decoration: none; }
+  .toc-back-top:hover { color: var(--accent); }
+  .paper-next-step { display: grid; gap: 1.2rem; justify-items: start; margin-top: 4rem; padding: 1.75rem; border: 1px solid var(--rule); border-radius: 0.6rem; background: var(--surface); font-family: var(--font-sans); }
+  .paper-next-step .paper-next-kicker { margin: 0 0 0.8rem; color: var(--accent); font-size: 0.62rem; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
+  .paper-next-step h2 { margin: 0 0 0.6rem; font: 600 1.6rem/1.2 var(--font-sans); letter-spacing: -0.035em; }
+  .paper-next-step p { margin: 0; color: var(--fg-muted); font-size: 0.85rem; line-height: 1.65; }
+  @media (max-width: 1023px) {
+    .paper-article :is(h2, h3, h4), #paper-top, #paper-introduction { scroll-margin-top: 5rem; }
   }
 
   .mobile-toc-panel {
-    max-height: calc(100dvh - var(--header-height) - 3.3rem);
+    max-height: calc(100dvh - var(--header-height) - 3.75rem);
     overflow-y: auto;
     border-top: 1px solid var(--rule);
     padding: 1rem;
@@ -289,7 +340,9 @@ const jsonLd = {
       align-self: start;
       max-height: calc(100dvh - var(--header-height));
       overflow-y: auto;
-      padding: 2.6rem 1.1rem 3rem 1.5rem;
+      padding: 2.6rem 1.25rem 2rem 1.5rem;
+      border-right: 1px solid var(--rule);
+      background: color-mix(in oklab, var(--surface) 40%, var(--bg));
       scrollbar-width: thin;
     }
 
@@ -299,7 +352,6 @@ const jsonLd = {
       gap: 0.75rem;
       margin-bottom: 1rem;
       padding-bottom: 0.8rem;
-      border-bottom: 1px solid var(--rule);
       font-family: var(--font-sans);
     }
 

@@ -1,30 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-/**
- * CoevolutionViewer — three linked panels that demonstrate the founding
- * insight of AlphaFold2: MSA columns that co-vary correspond to residues
- * that are in 3D contact.
- *
- *   Panel A (top-left):  MSA grid, scrollable. Columns i and j highlight.
- *   Panel B (top-right): N×N heatmap in contact-prediction-evaluation
- *                        format. Upper-right triangle shows the top-L
- *                        coupling predictions (red if they land on a true
- *                        contact, pale red if false-positive); lower-left
- *                        triangle shows real 3D contacts shaded by
- *                        Cα–Cα distance. Selected (i, j) cell flashes on
- *                        both halves.
- *   Panel C (bottom):    3Dmol.js cartoon of the reference structure.
- *                        Selected residues appear as highlighted spheres
- *                        joined by a dashed line labelled with the
- *                        Cα–Cα distance.
- *
- * Data comes from /co-evolution/trypsin.json (built by
- * scripts/build_coevolution_demo.py from ~2000 Pfam-PF00089 homologs
- * aligned with MAFFT, mapped to 2PTN bovine β-trypsin).
- *
- * Preset buttons pick a handful of canonical (i, j) pairs — high coupling +
- * contact, high coupling + distant, low coupling + contact — so readers who
- * don't want to click around still see the pattern.
+/** Three linked explorers: reference structure, coupling/contact map, and full MSA.
+ * Coupling is a relative sequence-derived score, and contact is evaluated
+ * separately against the reference structure's Cα distances.
  */
 
 interface Sequence {
@@ -223,6 +201,14 @@ function smoothRotateViewerToQuaternion(viewer: CoevolViewerWithAnimation, targe
     w: current.w ?? 1,
   });
   const end = normalizeQuaternion(target);
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    Object.assign(current, end);
+    current.normalize?.();
+    viewer.show?.();
+    viewer.render?.();
+    viewer.__coevolRotationAnimation = undefined;
+    return true;
+  }
   const durationMs = 850;
   const startTime = window.performance.now();
 
@@ -270,56 +256,13 @@ function orientViewerToPair(viewer: any, pointI: Point3, pointJ: Point3) {
   viewer.setView([view[0], view[1], view[2], view[3], q.x, q.y, q.z, q.w], true);
 }
 
-// Presets picked from the top-L coupling list. `i` and `j` are 1-indexed
-// alignment columns; `label` / `subtitle` describe the pair using the
-// PDB's residue numbering (which is what anyone reading a DCA or
-// structural-biology paper on trypsin will be using).
-const PRESETS: Array<{
-  label: string;
-  subtitle: string;
-  i: number;
-  j: number;
-}> = [
-  {
-    label: 'Cys136–Cys201 disulfide',
-    subtitle: 'buried disulfide bond · 4.4 Å',
-    i: 116,
-    j: 181,
-  },
-  {
-    label: 'β-strand packing (Ser32 ↔ His40)',
-    subtitle: 'short-range contact · 6.3 Å',
-    i: 17,
-    j: 23,
-  },
-  {
-    label: 'Asp189 ↔ Gly226',
-    subtitle: 'long-range S1 pocket contact · 6.2 Å',
-    i: 169,
-    j: 201,
-  },
-  {
-    label: 'Indirect coupling',
-    subtitle: 'high coupling, not a contact · ~15 Å',
-    i: 12,
-    j: 186,
-  },
-  {
-    label: 'Distant, no coupling',
-    subtitle: 'opposite ends of the fold · >20 Å',
-    i: 1,
-    j: 100,
-  },
+// Fixed examples verified against the bundled data. Indices are alignment columns.
+const PRESETS = [
+  { label: 'Coupled and close', subtitle: 'A high score agrees with a 3D contact', i: 116, j: 181 },
+  { label: 'Coupled but distant', subtitle: 'A high score does not guarantee contact', i: 12, j: 186 },
+  { label: 'Distant with a low score', subtitle: 'Compare a weakly scored, distant pair', i: 1, j: 100 },
 ];
 
-// Color scale for coupling: 0 → transparent, 1 → accent red
-function couplingColor(v: number): string {
-  // Clamp to [0, 1]
-  const c = Math.max(0, Math.min(1, v));
-  // sqrt gamma to make mid-low values more visible
-  const a = Math.pow(c, 0.6);
-  return `rgba(220, 60, 60, ${a.toFixed(3)})`;
-}
 // Amino-acid "chemistry class" color for the MSA grid. Muted so the
 // alignment reads as a pattern rather than a rainbow.
 const AA_COLORS: Record<string, string> = {
@@ -392,281 +335,68 @@ export default function CoevolutionViewer() {
 // Main widget body (only rendered once data is loaded)
 // -----------------------------------------------------------------------------
 
-function CoevolWidget({
-  data,
-  selected,
-  setSelected,
-}: {
+function CoevolWidget({ data, selected, setSelected }: {
   data: CoevolData;
   selected: { i: number; j: number } | null;
-  setSelected: (s: { i: number; j: number } | null) => void;
+  setSelected: (selection: { i: number; j: number } | null) => void;
 }) {
   const N = data.length;
-
-  // The coupling/distance for the selected pair (for caption readout).
+  const [draftI, setDraftI] = useState(String(selected?.i ?? 116));
+  const [draftJ, setDraftJ] = useState(String(selected?.j ?? 181));
+  const [selectionError, setSelectionError] = useState('');
+  useEffect(() => {
+    if (selected) { setDraftI(String(selected.i)); setDraftJ(String(selected.j)); setSelectionError(''); }
+  }, [selected]);
   const readout = useMemo(() => {
-    if (!selected) return null;
-    const { i, j } = selected;
-    if (i < 1 || i > N || j < 1 || j > N) return null;
-    const c = data.coupling[i - 1][j - 1];
-    const d = data.distance[i - 1][j - 1];
-    return { coupling: c, distance: d };
+    if (!selected || selected.i < 1 || selected.i > N || selected.j < 1 || selected.j > N) return null;
+    return { coupling: data.coupling[selected.i - 1][selected.j - 1], distance: data.distance[selected.i - 1][selected.j - 1] };
   }, [selected, data, N]);
+  const pickPair = useCallback((i: number, j: number) => setSelected({ i: Math.min(i, j), j: Math.max(i, j) }), [setSelected]);
+  const isContact = readout?.distance !== null && readout?.distance !== undefined && readout.distance <= data.contact_threshold_A;
 
-  // (baseline / fold-improvement figures previously shown in the widget
-  // sidebar have moved into the surrounding prose — the widget now
-  // focuses on the three interactive visuals.)
+  return <figure className="coevol-root">
+    <div className="coevol-header"><strong>{data.protein}: coevolution ↔ 3D contact</strong><span>{data.sequences.length.toLocaleString()} sequences · PDB {data.reference.pdb_id}</span></div>
+    <div className="coevol-toolbar">
+      <div className="coevol-presets-list" role="group" aria-label="Example residue pairs">{PRESETS.map(preset => <button type="button" key={preset.label} className="coevol-preset" title={preset.subtitle} aria-pressed={selected?.i === preset.i && selected?.j === preset.j} onClick={() => pickPair(preset.i, preset.j)}>{preset.label}</button>)}</div>
+      <form className="coevol-pair-form" aria-label="Choose alignment columns" onSubmit={event => {
+        event.preventDefault();
+        const i = Number(draftI), j = Number(draftJ);
+        if (!Number.isInteger(i) || !Number.isInteger(j) || i < 1 || i > N || j < 1 || j > N) { setSelectionError(`Choose whole-number columns between 1 and ${N}.`); return; }
+        if (i === j) { setSelectionError('Choose two different alignment columns.'); return; }
+        setSelectionError(''); pickPair(i, j);
+      }}><label>i<input type="number" aria-label="Alignment column i" min={1} max={N} step={1} required value={draftI} onChange={event => setDraftI(event.currentTarget.value)} /></label><label>j<input type="number" aria-label="Alignment column j" min={1} max={N} step={1} required value={draftJ} onChange={event => setDraftJ(event.currentTarget.value)} /></label><button type="submit">Inspect →</button></form>
+    </div>
+    {selectionError && <p className="coevol-selection-error" role="alert">{selectionError}</p>}
+    {selected && readout && <div className="coevol-readout" aria-live="polite">
+      <span><small>Alignment columns</small><strong>{selected.i}–{selected.j}</strong></span>
+      <span><small>PDB residues</small><strong>{data.column_pdb_residues[selected.i - 1]}–{data.column_pdb_residues[selected.j - 1]}</strong></span>
+      <span><small>Relative coupling</small><strong>{readout.coupling.toFixed(3)}</strong></span>
+      <span><small>Cα distance</small><strong>{readout.distance === null ? 'Unavailable' : `${readout.distance.toFixed(1)} Å`}</strong></span>
+      <span><small>Contact ≤ {data.contact_threshold_A} Å</small><strong>{readout.distance === null ? 'Unknown' : isContact ? 'Yes' : 'No'}</strong></span>
+    </div>}
 
-  // Set preset
-  const pickPreset = useCallback(
-    (i: number, j: number) => setSelected({ i: Math.min(i, j), j: Math.max(i, j) }),
-    [setSelected],
-  );
-
-  return (
-    <figure className="coevol-root">
-      <div className="coevol-header">
-        <div className="coevol-title">
-          <strong>{data.protein}</strong> co-evolution ↔ 3D contact
-          <span className="coevol-sub">
-            {' '}· {data.sequences.length} homologs · ref {data.reference.pdb_id}{' '}
-            ({data.reference.name})
-          </span>
-        </div>
-        <div className="coevol-readout">
-          {readout ? (
-            <>
-              <span className="coevol-readout-label">resi</span>
-              <span className="coevol-readout-value">
-                {data.column_pdb_residues[selected!.i - 1]}–
-                {data.column_pdb_residues[selected!.j - 1]}
-              </span>
-              <span className="coevol-readout-label">coupling</span>
-              <span
-                className="coevol-readout-value"
-                style={{
-                  color: couplingColor(readout.coupling).replace(/,\s*[\d.]+\)/, ',1)'),
-                }}
-              >
-                {readout.coupling.toFixed(3)}
-              </span>
-              <span className="coevol-readout-label">distance</span>
-              <span className="coevol-readout-value" style={{ color: '#6aa' }}>
-                {readout.distance === null ? '—' : `${readout.distance.toFixed(1)} Å`}
-              </span>
-            </>
-          ) : (
-            <span className="coevol-readout-placeholder">
-              click a cell on the heatmap, or try a preset below
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Presets: horizontal row above the viewers. The surrounding
-         prose now carries the legend / precision figure / "how to read
-         it" material that used to live in the sidebar, so the viewers
-         get the full widget width. */}
-      <div className="coevol-presets-row">
-        <span className="coevol-presets-label">Try a preset:</span>
-        <div className="coevol-presets-list">
-          {PRESETS.map((p) => (
-            <button
-              key={`preset-${p.i}-${p.j}`}
-              className={
-                selected && selected.i === p.i && selected.j === p.j
-                  ? 'coevol-preset coevol-preset--on'
-                  : 'coevol-preset'
-              }
-              onClick={() => pickPreset(p.i, p.j)}
-            >
-              <span className="coevol-preset-label">{p.label}</span>
-              <span className="coevol-preset-sub">{p.subtitle}</span>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* 3D viewer on top, full widget-width. */}
-      <div className="coevol-panel coevol-panel--structure">
-        <div className="coevol-panel-title">
-          3D structure · {data.reference.pdb_id}
-        </div>
-        <StructurePanel data={data} selected={selected} />
-      </div>
-
-      {/* Heatmap + MSA side-by-side below, also full widget-width. */}
-      <div className="coevol-bottom-row">
-        <div className="coevol-panel coevol-panel--heatmap">
-          <div className="coevol-panel-title">Contact-prediction heatmap</div>
-          <HeatmapPanel data={data} selected={selected} onSelect={setSelected} />
-        </div>
-        <div className="coevol-panel coevol-panel--msa">
-          <div className="coevol-panel-title">
-            MSA · {data.sequences.length} sequences × {N} columns
-          </div>
-          <MSAPanel
-            data={data}
-            selected={selected}
-            onPickCol={(col) => {
-              if (!selected) setSelected({ i: col, j: Math.min(col + 10, N) });
-              else if (selected.i === col || selected.j === col) setSelected(selected);
-              else if (Math.abs(col - selected.i) <= Math.abs(col - selected.j))
-                setSelected({ i: Math.min(col, selected.j), j: Math.max(col, selected.j) });
-              else setSelected({ i: Math.min(selected.i, col), j: Math.max(selected.i, col) });
-            }}
-          />
-        </div>
-      </div>
-
-      <style>{`
-        .coevol-root {
-          margin: 1.75rem 0;
-          border: 1px solid var(--rule);
-          border-radius: 6px;
-          padding: 1rem 1.1rem 0.9rem;
-          background: color-mix(in oklab, var(--bg) 94%, var(--rule) 6%);
-          font-family: var(--font-sans);
-        }
-        .coevol-error, .coevol-loading {
-          padding: 2rem;
-          text-align: center;
-          color: var(--fg-muted);
-        }
-        .coevol-error code { font-family: var(--font-mono); font-size: 0.85em; }
-
-        /* Header: title + readout */
-        .coevol-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-end;
-          gap: 1rem;
-          flex-wrap: wrap;
-          margin-bottom: 0.75rem;
-        }
-        .coevol-title {
-          font-size: 0.95rem;
-          color: var(--fg);
-        }
-        .coevol-title strong { font-weight: 600; }
-        .coevol-sub {
-          color: var(--fg-muted);
-          font-size: 0.82rem;
-        }
-        .coevol-readout {
-          display: inline-flex;
-          gap: 0.55rem 1rem;
-          align-items: baseline;
-          padding: 0.4rem 0.7rem;
-          border: 1px solid var(--rule);
-          border-radius: 4px;
-          font-family: var(--font-mono);
-          font-size: 0.85rem;
-          background: color-mix(in oklab, var(--bg) 88%, var(--rule) 12%);
-          flex-wrap: wrap;
-        }
-        .coevol-readout-label {
-          color: var(--fg-muted);
-          font-size: 0.68rem;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-        }
-        .coevol-readout-value {
-          color: var(--fg);
-          font-weight: 600;
-          min-width: 2.5rem;
-          display: inline-block;
-          font-variant-numeric: tabular-nums;
-        }
-        .coevol-readout-placeholder {
-          color: var(--fg-muted);
-          font-style: italic;
-          font-family: var(--font-sans);
-        }
-
-        /* Presets: horizontal row above the viewers, wraps on narrow
-           widths. Each preset button stacks its label and subtitle
-           vertically to keep per-button width moderate. */
-        .coevol-presets-row {
-          display: flex;
-          flex-wrap: wrap;
-          align-items: center;
-          gap: 0.5rem 0.75rem;
-          margin-bottom: 0.9rem;
-        }
-        .coevol-presets-label {
-          font-size: 0.74rem;
-          color: var(--fg-muted);
-          margin-right: 0.1rem;
-        }
-        .coevol-presets-list {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 0.4rem;
-        }
-        .coevol-preset {
-          padding: 0.35rem 0.65rem;
-          border: 1px solid var(--rule);
-          border-radius: 4px;
-          background: transparent;
-          font: inherit;
-          font-size: 0.78rem;
-          color: var(--fg);
-          cursor: pointer;
-          display: inline-flex;
-          flex-direction: column;
-          line-height: 1.25;
-          text-align: left;
-        }
-        .coevol-preset:hover { border-color: var(--fg-muted); }
-        .coevol-preset--on {
-          border-color: var(--accent);
-          background: color-mix(in oklab, var(--accent) 14%, transparent);
-        }
-        .coevol-preset-label { font-weight: 500; }
-        .coevol-preset-sub {
-          font-size: 0.7rem;
-          color: var(--fg-muted);
-          margin-top: 1px;
-        }
-
-        /* Main viewing area: 3D viewer on top (full-width), then
-           heatmap + MSA side-by-side below. No sidebar. */
-        .coevol-panel--structure {
-          margin-bottom: 0.85rem;
-        }
-        .coevol-bottom-row {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-          gap: 0.85rem;
-        }
-        @media (max-width: 600px) {
-          .coevol-bottom-row { grid-template-columns: 1fr; }
-        }
-        .coevol-panel {
-          display: flex;
-          flex-direction: column;
-          min-width: 0;
-          /* min-height: 0 lets flex children (like the scrolling MSA
-             wrap) shrink below their intrinsic content size, so the
-             bottom-row panels line up at both top and bottom. */
-          min-height: 0;
-        }
-        .coevol-panel-title {
-          font-size: 0.72rem;
-          color: var(--fg-muted);
-          letter-spacing: 0.05em;
-          text-transform: uppercase;
-          margin-bottom: 0.4rem;
-          /* Titles one-line so the bottom-row panels start their visual
-             content at the same y-coordinate. */
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-      `}</style>
-    </figure>
-  );
+    <div className="coevol-panel coevol-panel--structure"><div className="coevol-panel-title"><strong>Reference structure · {data.reference.pdb_id}</strong><span>Drag to rotate · scroll to zoom</span></div><StructurePanel data={data} selected={selected} /></div>
+    <div className="coevol-bottom-row">
+      <div className="coevol-panel coevol-panel--heatmap"><div className="coevol-panel-title"><strong>Coupling and contact map</strong><span>Hover to inspect · click to select</span></div><HeatmapPanel data={data} selected={selected} onSelect={setSelected} /><p className="coevol-small"><b className="coevol-coupling-key">Upper triangle:</b> top-L coupling predictions; dark marks meet the contact threshold, pale marks do not. <b className="coevol-contact-key">Lower triangle:</b> measured reference contacts.</p></div>
+      <div className="coevol-panel coevol-panel--msa"><div className="coevol-panel-title"><strong>Full alignment</strong><span>{data.sequences.length.toLocaleString()} sequences × {N} columns</span></div><MSAPanel data={data} selected={selected} onPickCol={col => {
+        if (!selected) pickPair(col, col === N ? col - 10 : Math.min(col + 10, N));
+        else if (selected.i === col || selected.j === col) return;
+        else if (Math.abs(col - selected.i) <= Math.abs(col - selected.j)) pickPair(col, selected.j);
+        else pickPair(selected.i, col);
+      }} /><p className="coevol-small">Scroll through the full alignment. Click a column to move the nearer selection; the same pair updates the map, structure, and readout.</p></div>
+    </div>
+    <figcaption className="coevol-caption"><strong>Coupling is a relative score, not a contact probability.</strong> The line joins the selected Cα atoms in the reference structure. In this dataset, {(data.top_coupling_precision * 100).toFixed(1)}% of the top {data.top_n} scored pairs meet the ≤ {data.contact_threshold_A} Å threshold (sequence separation ≥ {data.min_separation}). Alignment columns and PDB residue numbers are different numbering systems.
+      {selected && Math.abs(selected.i - selected.j) < data.min_separation && <span className="coevol-excluded"> This selected pair is too close along the sequence to be included in that top-L evaluation.</span>}
+    </figcaption>
+    <style>{`
+      .coevol-root{margin:1.75rem 0;padding:1rem;border:1px solid var(--rule);border-radius:.6rem;background:var(--surface-strong);font-family:var(--font-sans);color:var(--fg)}.coevol-header{display:flex;align-items:baseline;flex-wrap:wrap;gap:.35rem .8rem;margin:0 0 .65rem}.coevol-header>strong{font-size:.95rem}.coevol-header>span{font-size:.7rem;color:var(--fg-muted)}
+      .coevol-toolbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.55rem;padding-bottom:.7rem}.coevol-presets-list{display:flex;flex-wrap:wrap;gap:.35rem}.coevol-root button{min-height:2.25rem;padding:.4rem .55rem;border:1px solid var(--rule);border-radius:.3rem;background:var(--bg);color:var(--fg);font:500 .69rem var(--font-sans);cursor:pointer}.coevol-preset[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft);color:var(--accent)}.coevol-root button:hover{border-color:var(--accent)}.coevol-root :is(button,input):focus-visible{outline:2px solid var(--focus);outline-offset:3px}
+      .coevol-pair-form{display:flex;align-items:center;gap:.4rem}.coevol-pair-form label{display:flex;align-items:center;gap:.3rem;color:var(--fg-muted);font:.72rem var(--font-mono)}.coevol-pair-form input{width:3.6rem;min-height:2.25rem;padding:.35rem;border:1px solid var(--rule);border-radius:.25rem;background:var(--surface-strong);color:var(--fg);font:.75rem var(--font-mono)}.coevol-pair-form button{background:var(--accent);color:var(--bg);border-color:var(--accent)}.coevol-selection-error{margin:0 0 .7rem;color:var(--data-pair);font-size:.75rem}
+      .coevol-readout{display:flex;flex-wrap:wrap;gap:.55rem 1.1rem;align-items:baseline;padding:.65rem .8rem;margin-bottom:.9rem;border-block:1px solid var(--rule);background:var(--bg)}.coevol-readout>span{display:inline-flex;align-items:baseline;gap:.4rem;white-space:nowrap}.coevol-readout small{color:var(--fg-muted);font-size:.65rem}.coevol-readout strong{color:var(--fg);font:600 .82rem var(--font-mono)}
+      .coevol-panel{display:flex;flex-direction:column;min-width:0;min-height:0}.coevol-panel-title{display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:.25rem .6rem;margin-bottom:.5rem;font-size:.69rem;color:var(--fg-muted)}.coevol-panel-title strong{color:var(--fg);font-weight:600}.coevol-panel-title>span{font-size:.65rem}.coevol-bottom-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:1rem;margin-top:1rem}.coevol-root .coevol-small{margin:.6rem 0 0;color:var(--fg-muted);font-size:.69rem;line-height:1.6}.coevol-coupling-key{color:#b95040}.coevol-contact-key{color:var(--data-msa)}.coevol-caption{margin:.85rem 0 0!important;padding-top:.8rem;border-top:1px solid var(--rule);color:var(--fg-muted);font-size:.72rem;line-height:1.7}.coevol-caption strong{color:var(--fg)}.coevol-excluded{color:var(--data-pair)}.coevol-error,.coevol-loading{padding:2rem;text-align:center;color:var(--fg-muted)}
+      @media(max-width:600px){.coevol-root{padding:.8rem}.coevol-bottom-row{grid-template-columns:1fr}.coevol-readout{gap:.45rem .85rem;padding:.65rem}.coevol-readout>span{flex:1 1 7rem;justify-content:space-between}.coevol-readout>span:last-child{flex-grow:0}.coevol-toolbar{gap:.65rem}.coevol-presets-list{gap:.3rem}.coevol-root .coevol-preset{font-size:.66rem;padding:.4rem .5rem}.coevol-pair-form{width:100%}.coevol-pair-form label{flex:1}.coevol-pair-form input{width:100%;max-width:5rem}.coevol-header>strong{font-size:.9rem}}
+    `}</style>
+  </figure>;
 }
 
 // -----------------------------------------------------------------------------
@@ -735,6 +465,17 @@ function MSAPanel({
     }
   }, [data, selected, N, nSeq, W, H]);
 
+  // Keep the selected columns in view when presets or the map change the pair.
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !selected) return;
+    const span = (selected.j - selected.i + 1) * cellW;
+    const center = span <= container.clientWidth
+      ? ((selected.i + selected.j) / 2 - 0.5) * cellW
+      : (selected.i - 0.5) * cellW;
+    container.scrollTo({ left: Math.max(0, center - container.clientWidth / 2), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }, [selected]);
+
   const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const rect = (e.target as HTMLCanvasElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
@@ -743,7 +484,7 @@ function MSAPanel({
   };
 
   return (
-    <div className="msa-panel-wrap" ref={containerRef}>
+    <div className="msa-panel-wrap" ref={containerRef} role="region" aria-label="Scrollable full multiple sequence alignment" tabIndex={0}>
       <canvas
         ref={canvasRef}
         onClick={handleClick}
@@ -752,6 +493,8 @@ function MSAPanel({
         style={{ cursor: 'pointer', display: 'block' }}
       />
       <style>{`
+        .msa-panel-wrap canvas { max-width: none; }
+        .msa-panel-wrap:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
         .msa-panel-wrap {
           border: 1px solid var(--rule);
           border-radius: 4px;
@@ -784,6 +527,7 @@ function HeatmapPanel({
   onSelect: (s: { i: number; j: number } | null) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [hoverPair, setHoverPair] = useState<{ i: number; j: number } | null>(null);
   const N = data.length;
   // Internal rendering resolution. We draw at this size for crisp cells,
   // then CSS scales the canvas down to fit the container width. The
@@ -890,7 +634,7 @@ function HeatmapPanel({
     }
   }, [data, selected, N, cell, W, H, minSep, trueContactSet]);
 
-  const handleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const pairAtPointer = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = e.currentTarget;
     const rect = canvas.getBoundingClientRect();
     // Canvas is CSS-scaled; convert screen coords back to internal coords.
@@ -900,18 +644,23 @@ function HeatmapPanel({
     const y = (e.clientY - rect.top) * scaleY;
     const col = Math.floor(x / cell);
     const row = Math.floor(y / cell);
-    if (col < 0 || col >= N || row < 0 || row >= N) return;
+    if (col < 0 || col >= N || row < 0 || row >= N) return null;
     const i = Math.min(col, row) + 1;
     const j = Math.max(col, row) + 1;
-    if (i === j) return;
-    onSelect({ i, j });
+    if (i === j) return null;
+    return { i, j };
   };
 
   return (
     <div className="heatmap-panel-wrap">
       <canvas
         ref={canvasRef}
-        onClick={handleClick}
+        onClick={event => { const pair = pairAtPointer(event); if (pair) onSelect(pair); }}
+        onMouseMove={event => {
+          const pair = pairAtPointer(event);
+          setHoverPair(previous => previous?.i === pair?.i && previous?.j === pair?.j ? previous : pair);
+        }}
+        onMouseLeave={() => setHoverPair(null)}
         role="img"
         aria-label={`Contact-prediction heatmap: upper-right shows the top-${data.top_n} coupling predictions (bright = landed on a true contact, faint = false positive); lower-left shows real 3D contacts. Click a cell to select a residue pair.`}
         style={{
@@ -922,14 +671,17 @@ function HeatmapPanel({
           aspectRatio: '1 / 1',
         }}
       />
+      {hoverPair && <div className="heatmap-hover" aria-hidden="true">Columns {hoverPair.i}–{hoverPair.j} · score {data.coupling[hoverPair.i - 1][hoverPair.j - 1].toFixed(3)} · {data.distance[hoverPair.i - 1][hoverPair.j - 1]?.toFixed(1) ?? '—'} Å</div>}
       <style>{`
         .heatmap-panel-wrap {
+          position: relative;
           border: 1px solid var(--rule);
           border-radius: 4px;
           background: color-mix(in oklab, var(--bg) 92%, var(--rule) 8%);
           /* No overflow / max-height here — the canvas scales to fit the
              panel width, so there's nothing to scroll. */
         }
+        .heatmap-hover { position: absolute; bottom: .5rem; left: .5rem; right: .5rem; width: fit-content; max-width: calc(100% - 1rem); padding: .35rem .5rem; border: 1px solid var(--rule-strong); border-radius: .3rem; background: var(--surface-strong); color: var(--fg); box-shadow: var(--shadow-float); font: .65rem/1.5 var(--font-mono); pointer-events: none; }
       `}</style>
     </div>
   );
@@ -966,7 +718,7 @@ function StructurePanel({
         const $3Dmol = await load3Dmol();
         if (cancelled) return;
         const viewer = $3Dmol.createViewer(containerRef.current, {
-          backgroundColor: 'rgb(24,24,28)',
+          backgroundColor: '#10241f',
           antialias: true,
         });
         viewer.addModel(data.pdb, 'pdb');
@@ -981,6 +733,7 @@ function StructurePanel({
     })();
     return () => {
       cancelled = true;
+      if (viewerRef.current?.__coevolRotationAnimation) window.cancelAnimationFrame(viewerRef.current.__coevolRotationAnimation);
       try {
         viewerRef.current?.clear?.();
       } catch {
@@ -1069,7 +822,7 @@ function StructurePanel({
           border: 1px solid var(--rule);
           border-radius: 4px;
           overflow: hidden;
-          background: rgb(24,24,28);
+          background: #10241f;
           position: relative;
         }
         .structure-panel-container {

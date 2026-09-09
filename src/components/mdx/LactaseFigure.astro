@@ -1,0 +1,53 @@
+---
+const chains = [
+  { label: 'A', color: '#24765e' },
+  { label: 'B', color: '#92b571' },
+  { label: 'C', color: '#5b968c' },
+  { label: 'D', color: '#d1af67' },
+];
+---
+
+<figure class="lactase-figure paper-figure" aria-labelledby="lactase-title">
+  <div class="lactase-stage">
+    <a class="lactase-image-link" href="/images/alphafold2/lactase-3oba.png" target="_blank" rel="noopener" aria-label="Open the full-resolution lactase structure image">
+      <img src="/images/alphafold2/lactase-3oba.png" width="2400" height="1800" loading="lazy" decoding="async" alt="Ribbon rendering of the four protein subunits in yeast lactase, colored forest green, sage, teal, and gold." />
+      <span>View full resolution ↗</span>
+    </a>
+    <div class="lactase-copy">
+      <span class="lactase-kicker">AN EXPERIMENTAL STRUCTURE</span>
+      <h4 id="lactase-title">Yeast lactase</h4>
+      <p>This enzyme breaks lactose into glucose and galactose. Four copies of the protein fit together to form the assembly shown here.</p>
+      <p class="lactase-reading">Each ribbon follows a folded protein chain. The colors distinguish the four subunits.</p>
+      <ul aria-label="Protein subunit colors">
+        {chains.map((chain) => <li><i style={{ background: chain.color }} aria-hidden="true"></i>Chain {chain.label}</li>)}
+      </ul>
+      <a class="lactase-source" href="https://www.rcsb.org/structure/3OBA" target="_blank" rel="noopener noreferrer">PDB 3OBA · X-ray, 2.75 Å ↗</a>
+    </div>
+  </div>
+  <figcaption>
+    β-galactosidase from <em>Kluyveromyces lactis</em>, shown as the deposited biological assembly (chains A–D). This is a yeast enzyme; human intestinal lactase is a different protein. Rendered from PDB coordinates with Molecular Structure Viewer. <a href="/3oba.pdb" download>Download the structure</a>.
+  </figcaption>
+</figure>
+
+<style>
+  .lactase-figure { margin: 2rem 0; font-family: var(--font-sans); }
+  .lactase-stage { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); align-items: center; border: 1px solid var(--rule-strong); border-radius: .7rem; overflow: hidden; background: var(--surface-strong); }
+  .lactase-image-link { display: block; position: relative; background: #f7f8f3; color: #1e6750; text-decoration: none; border: 0; }
+  .lactase-image-link img { display: block; width: 100%; height: auto; min-height: 330px; object-fit: cover; }
+  .lactase-image-link > span { position: absolute; bottom: .8rem; left: 1rem; font-size: .68rem; }
+  .lactase-copy { padding: 1.5rem; }
+  .lactase-kicker { color: var(--accent); font: 600 .62rem var(--font-mono); letter-spacing: .09em; }
+  .lactase-copy h4 { color: var(--fg); font-size: 1.45rem; line-height: 1.2; margin: .5rem 0 .85rem; }
+  .lactase-copy p { color: var(--fg); font-size: .85rem; line-height: 1.7; margin: 0 0 .9rem; }
+  .lactase-copy .lactase-reading { color: var(--fg-muted); font-size: .77rem; }
+  .lactase-copy ul { display: grid; grid-template-columns: repeat(2, max-content); gap: .6rem 1rem; list-style: none; padding: 0; margin: 1rem 0; }
+  .lactase-copy li { display: flex; align-items: center; gap: .35rem; font: .7rem var(--font-mono); margin: 0; }
+  .lactase-copy i { width: .6rem; height: .6rem; border-radius: 50%; }
+  .lactase-source { font-size: .73rem; }
+  .lactase-figure figcaption { margin: .7rem 0 0; color: var(--fg-muted); font-size: .75rem; line-height: 1.65; }
+  @media (max-width: 640px) {
+    .lactase-stage { grid-template-columns: 1fr; }
+    .lactase-image-link img { min-height: 0; }
+    .lactase-copy { padding: 1.15rem; }
+  }
+</style>

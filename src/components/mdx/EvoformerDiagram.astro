@@ -1,269 +1,104 @@
 ---
-// Static SVG reference diagram for one Evoformer block.
-//
-// Two streams run left-to-right in temporal order through the seven
-// sub-blocks of an Evoformer pass:
-//   1. Row attention with pair bias  (m stream, reads z)
-//   2. Column attention              (m stream)
-//   3. MSA transition                (m stream)
-//   4. Outer product mean            (z stream, reads m)
-//   5. Triangle mul (outgoing + incoming)   (z stream)
-//   6. Triangle attn (starting + ending)    (z stream)
-//   7. Pair transition               (z stream)
-//
-// The diagram emphasises the two cross-lane couplings (accent-coloured,
-// thicker) because those two arrows are the whole architectural point of the
-// Evoformer: they are the *only* way m and z talk to each other.
-//
-// Layout: 7 equal time slots across the x axis. Sub-blocks 1-3 live on the
-// top lane (m), sub-blocks 4-7 live on the bottom lane (z). No zig-zag;
-// temporal order is strictly left-to-right.
+// One block, split into the MSA updates and the pair updates. Numbering
+// establishes execution order; the two colored cross-lane arrows show where
+// information moves between representations. Residual additions are implicit.
+const msaSteps = [
+  { x: 145, number: '1', lines: ['Row attention'], note: 'across residues' },
+  { x: 335, number: '2', lines: ['Column attention'], note: 'across sequences' },
+  { x: 525, number: '3', lines: ['MSA transition'], note: 'per-position MLP' },
+];
+const pairSteps = [
+  { x: 145, number: '4', lines: ['Outer product', 'mean'], note: 'MSA → pair update' },
+  { x: 335, number: '5', lines: ['Triangle', 'multiplication'], note: 'outgoing + incoming' },
+  { x: 525, number: '6', lines: ['Triangle', 'attention'], note: 'starting + ending' },
+  { x: 715, number: '7', lines: ['Pair transition'], note: 'per-pair MLP' },
+];
 ---
-<figure class="evo-fig">
-  <svg
-    viewBox="0 0 920 300"
-    role="img"
-    aria-label="One Evoformer block, showing the seven sub-blocks operating on the MSA representation m (top stream) and the pair representation z (bottom stream), with the two cross-lane couplings (pair bias z → row attention, and outer-product mean m → z)."
-  >
-    <defs>
-      <marker id="evo-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--fg-muted)" />
-      </marker>
-      <marker id="evo-arrow-accent" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
-        <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)" />
-      </marker>
-    </defs>
+<figure class="evo-fig" aria-labelledby="evo-title">
+  <header class="evo-heading">
+    <span class="evo-kicker">INSIDE THE EVOFORMER</span>
+    <h4 id="evo-title">The seven updates inside one Evoformer block</h4>
+    <p>Follow steps 1–3 across the MSA lane, then steps 4–7 across the pair lane.</p>
+  </header>
+  <p class="evo-scroll-hint">Scroll horizontally to follow all seven steps →</p>
+  <div class="evo-scroll" role="region" aria-label="Scrollable diagram of one Evoformer block" tabindex="0">
+    <svg viewBox="0 0 1000 450" role="img" aria-labelledby="evo-svg-title evo-svg-description">
+      <title id="evo-svg-title">The MSA and pair update paths inside one Evoformer block</title>
+      <desc id="evo-svg-description">MSA m passes through row attention, column attention, and an MSA transition, then continues to the next block. Pair z biases row attention. The updated MSA passes through outer product mean, which adds an update to z. Pair z then passes through triangle multiplication, triangle attention, and a pair transition before the next block. These are the two cross-stream connections.</desc>
+      <defs>
+        <marker id="evo-msa-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10Z" fill="var(--data-msa)" /></marker>
+        <marker id="evo-pair-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0 L10 5 L0 10Z" fill="var(--data-pair)" /></marker>
+      </defs>
+      <rect class="evo-lane-bg evo-msa" x="10" y="68" width="980" height="120" rx="9" />
+      <rect class="evo-lane-bg evo-pair" x="10" y="301" width="980" height="120" rx="9" />
+      <text class="evo-lane-label evo-msa" x="22" y="52">MSA representation m</text>
+      <text class="evo-lane-label evo-pair" x="335" y="295">Pair representation z</text>
+      <text class="evo-endpoint evo-msa" x="28" y="118">m in</text>
+      <text class="evo-endpoint evo-pair" x="28" y="344">z in</text>
 
-    {/* ----- Lane labels (left gutter). Just "m" and "z"; the figcaption
-             spells out that m is the MSA representation and z is the pair
-             representation, so the inline (MSA rep) / (pair rep) tags were
-             redundant and were colliding with the endpoint labels. ----- */}
-    <text x="20" y="90" class="evo-lane-label" font-style="italic">m</text>
-    <text x="20" y="220" class="evo-lane-label" font-style="italic">z</text>
+      <g class="evo-flow evo-msa" marker-end="url(#evo-msa-arrow)">
+        <path d="M78 130 H140" /><path d="M305 130 H330" /><path d="M495 130 H520" /><path d="M685 130 H933" />
+      </g>
+      <g class="evo-flow evo-pair" marker-end="url(#evo-pair-arrow)">
+        <path d="M78 356 H140" /><path d="M305 356 H330" /><path d="M495 356 H520" /><path d="M685 356 H710" /><path d="M875 356 H933" />
+      </g>
+      <text class="evo-endpoint evo-msa" x="855" y="117">m to next block</text>
+      <text class="evo-endpoint evo-pair" x="845" y="441">z to next block</text>
 
-    {/* ----- Horizontal stream lines ----- */}
-    <line x1="100" y1="90" x2="870" y2="90" class="evo-stream" />
-    <line x1="100" y1="220" x2="870" y2="220" class="evo-stream" />
+      {msaSteps.map((step) => <g class="evo-block evo-msa">
+        <rect x={step.x} y="87" width="160" height="86" rx="6" />
+        <text class="evo-number" x={step.x + 13} y="107">{step.number}</text>
+        <text x={step.x + 80} y="133" text-anchor="middle">{step.lines[0]}</text>
+        <text class="evo-sub" x={step.x + 80} y="155" text-anchor="middle">{step.note}</text>
+      </g>)}
+      {pairSteps.map((step) => <g class="evo-block evo-pair">
+        <rect x={step.x} y="313" width="160" height="96" rx="6" />
+        <text class="evo-number" x={step.x + 13} y="333">{step.number}</text>
+        {step.lines.map((line, index) => <text x={step.x + 80} y={step.lines.length === 1 ? 362 : 351 + index * 18} text-anchor="middle">{line}</text>)}
+        <text class="evo-sub" x={step.x + 80} y="393" text-anchor="middle">{step.note}</text>
+      </g>)}
 
-    {/* ----- Stream endpoints. Baselines sit on the stream lines
-             themselves (y=90 and y=220) so each label reads as a name for
-             the stream it terminates, not as a floating annotation above
-             or below the line. ----- */}
-    <text x="98" y="90" class="evo-endpoint" text-anchor="end">m_in</text>
-    <text x="872" y="90" class="evo-endpoint" text-anchor="start">m_out</text>
-    <text x="98" y="220" class="evo-endpoint" text-anchor="end">z_in</text>
-    <text x="872" y="220" class="evo-endpoint" text-anchor="start">z_out</text>
+      <circle class="evo-dot evo-pair" cx="111" cy="356" r="3.5" />
+      <path class="evo-cross evo-pair" d="M111 356 V210 H225 V178" marker-end="url(#evo-pair-arrow)" />
+      <text class="evo-cross-label evo-pair" x="246" y="215">Pair features bias row attention in step 1</text>
 
-    {/*
-      Time slots: 7 slots, each 105px wide, spanning x = 105 .. 840.
-      Slot k has center x = 105 + (k - 0.5) * 105.
-      Block width = 92, centered in slot.
-      Block height = 50.
-      Top-lane blocks: y = 90 - 25 = 65 (top edge), y = 90 + 25 = 115 (bottom)
-      Bottom-lane blocks: y = 220 - 25 = 195 (top), y = 220 + 25 = 245 (bottom)
-    */}
-
-    {/* --- Top-lane blocks (slots 1..3): operate on m --- */}
-
-    {/* Slot 1: Row attn + pair bias */}
-    <g class="evo-block">
-      <rect x="111" y="65" width="92" height="50" rx="5" />
-      <text x="157" y="85" text-anchor="middle">Row attn</text>
-      <text x="157" y="102" text-anchor="middle" class="evo-block-sub">(+ pair bias)</text>
-    </g>
-
-    {/* Slot 2: Col attn */}
-    <g class="evo-block">
-      <rect x="216" y="65" width="92" height="50" rx="5" />
-      <text x="262" y="94" text-anchor="middle">Col attn</text>
-    </g>
-
-    {/* Slot 3: MSA transition */}
-    <g class="evo-block">
-      <rect x="321" y="65" width="92" height="50" rx="5" />
-      <text x="367" y="85" text-anchor="middle">MSA</text>
-      <text x="367" y="102" text-anchor="middle">transition</text>
-    </g>
-
-    {/* --- Bottom-lane blocks (slots 4..7): operate on z --- */}
-
-    {/* Slot 4: OPM */}
-    <g class="evo-block">
-      <rect x="426" y="195" width="92" height="50" rx="5" />
-      <text x="472" y="215" text-anchor="middle">OPM</text>
-      <text x="472" y="232" text-anchor="middle" class="evo-block-sub">outer-prod mean</text>
-    </g>
-
-    {/* Slot 5: Tri-mul */}
-    <g class="evo-block">
-      <rect x="531" y="195" width="92" height="50" rx="5" />
-      <text x="577" y="215" text-anchor="middle">Tri-mul</text>
-      <text x="577" y="232" text-anchor="middle" class="evo-block-sub">(out + in)</text>
-    </g>
-
-    {/* Slot 6: Tri-attn */}
-    <g class="evo-block">
-      <rect x="636" y="195" width="92" height="50" rx="5" />
-      <text x="682" y="215" text-anchor="middle">Tri-attn</text>
-      <text x="682" y="232" text-anchor="middle" class="evo-block-sub">(start + end)</text>
-    </g>
-
-    {/* Slot 7: Pair transition */}
-    <g class="evo-block">
-      <rect x="741" y="195" width="92" height="50" rx="5" />
-      <text x="787" y="215" text-anchor="middle">Pair</text>
-      <text x="787" y="232" text-anchor="middle">transition</text>
-    </g>
-
-    {/* --- Cross-lane arrow 1: z → Row attn (pair bias) ---
-         Clean vertical drop from the z stream up into the bottom edge of
-         the Row-attn block. Routing on the left edge at x=90 collided
-         with the lane sub-labels and the m_in/z_in endpoint text, so we
-         bring the arrow inside the diagram where the streams are clear. */}
-    <path
-      class="evo-cross"
-      d="M 157 218 L 157 115"
-      marker-end="url(#evo-arrow-accent)"
-    />
-    <text x="149" y="170" class="evo-cross-label" text-anchor="end">pair bias</text>
-
-    {/* --- Cross-lane arrow 2: m → OPM ---
-         Vertical drop from the m stream into the top edge of the OPM
-         block. Previous version put the label in a corridor that ran
-         into the Tri-mul block; now the label sits to the right of the
-         arrow, in the empty band above OPM where nothing else lives. */}
-    <path
-      class="evo-cross"
-      d="M 472 92 L 472 193"
-      marker-end="url(#evo-arrow-accent)"
-    />
-    <text x="480" y="148" class="evo-cross-label" text-anchor="start">m → OPM</text>
-
-    {/* --- Slot markers along the bottom (temporal axis) --- */}
-    <g class="evo-tickrow">
-      <line x1="105" y1="274" x2="840" y2="274" />
-      <line x1="157" y1="272" x2="157" y2="278" />
-      <line x1="262" y1="272" x2="262" y2="278" />
-      <line x1="367" y1="272" x2="367" y2="278" />
-      <line x1="472" y1="272" x2="472" y2="278" />
-      <line x1="577" y1="272" x2="577" y2="278" />
-      <line x1="682" y1="272" x2="682" y2="278" />
-      <line x1="787" y1="272" x2="787" y2="278" />
-      <text x="157" y="290" text-anchor="middle">1</text>
-      <text x="262" y="290" text-anchor="middle">2</text>
-      <text x="367" y="290" text-anchor="middle">3</text>
-      <text x="472" y="290" text-anchor="middle">4</text>
-      <text x="577" y="290" text-anchor="middle">5</text>
-      <text x="682" y="290" text-anchor="middle">6</text>
-      <text x="787" y="290" text-anchor="middle">7</text>
-      <text x="472" y="260" text-anchor="middle" class="evo-axis-label">
-        temporal order within one block →
-      </text>
-    </g>
-  </svg>
-
+      <circle class="evo-dot evo-msa" cx="710" cy="130" r="3.5" />
+      <path class="evo-cross evo-msa" d="M710 130 V244 H225 V308" marker-end="url(#evo-msa-arrow)" />
+      <text class="evo-cross-label evo-msa" x="246" y="267">Updated MSA from step 3 supplies step 4</text>
+    </svg>
+  </div>
   <figcaption>
-    One Evoformer block. The <em>m</em> stream (top) carries the MSA
-    representation; the <em>z</em> stream (bottom) carries the pair
-    representation. Of the seven sub-blocks, three update <em>m</em> (row
-    attn, col attn, MSA transition) and four update <em>z</em> (OPM,
-    tri-mul, tri-attn, pair transition). The two accent-coloured arrows are
-    the <strong>only</strong> couplings between the streams:
-    <em>z</em> feeds row attention as the pair-bias term, and the
-    outer-product mean is the single route by which MSA information reaches
-    the pair representation. That asymmetry — the MSA stack exists to
-    distil evolutionary signal into <em>z</em>, after which the pair stack
-    does the geometric work — is the architectural thesis of the Evoformer.
+    <strong>The two connections to trace:</strong> <i>z</i> supplies the bias used in MSA row attention;
+    the outer product mean turns the updated <i>m</i> into an update added to <i>z</i>.
+    Every operation adds its result to its own stream; the diagram omits these residual additions for clarity.
+    The resulting <i>m</i> and <i>z</i> enter the next block. The full Evoformer has 48 blocks.
   </figcaption>
 </figure>
 
 <style>
-  .evo-fig {
-    margin: 1.75rem 0;
-    border: 1px solid var(--rule);
-    border-radius: 6px;
-    padding: 1rem 1.25rem 0.9rem;
-    background: color-mix(in oklab, var(--bg) 94%, var(--rule) 6%);
-  }
-  .evo-fig svg {
-    width: 100%;
-    height: auto;
-    display: block;
-    font-family: var(--font-sans);
-    font-size: 13px;
-  }
-
-  /* Lane labels (m, z) */
-  .evo-lane-label {
-    fill: var(--fg);
-    font-size: 15px;
-    font-weight: 500;
-  }
-
-  /* The horizontal stream lines */
-  .evo-stream {
-    stroke: var(--fg-muted);
-    stroke-width: 1.2;
-    opacity: 0.55;
-  }
-  .evo-endpoint {
-    fill: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: 11px;
-  }
-
-  /* Sub-block boxes — opaque fill (mixed with --rule for a subtle tint)
-     so the stream line doesn't bleed through behind the block text. */
-  .evo-block rect {
-    fill: color-mix(in oklab, var(--bg) 88%, var(--rule) 12%);
-    stroke: var(--rule);
-    stroke-width: 1;
-  }
-  .evo-block text {
-    fill: var(--fg);
-    font-size: 12.5px;
-  }
-  .evo-block-sub {
-    fill: var(--fg-muted);
-    font-size: 10.5px;
-    font-style: italic;
-  }
-
-  /* Cross-lane arrows (the two couplings between m and z) */
-  .evo-cross {
-    stroke: var(--accent);
-    stroke-width: 1.7;
-    fill: none;
-  }
-  .evo-cross-label {
-    fill: var(--accent);
-    font-size: 11px;
-    font-style: italic;
-  }
-
-  /* Bottom temporal-axis ticks */
-  .evo-tickrow line {
-    stroke: var(--fg-muted);
-    stroke-width: 0.8;
-    opacity: 0.55;
-  }
-  .evo-tickrow text {
-    fill: var(--fg-muted);
-    font-size: 10.5px;
-    font-family: var(--font-mono);
-  }
-  .evo-axis-label {
-    font-size: 10px !important;
-    font-style: italic;
-    font-family: var(--font-sans) !important;
-  }
-
-  .evo-fig figcaption {
-    font-size: 0.85rem;
-    color: var(--fg-muted);
-    margin-top: 0.7rem;
-    line-height: 1.55;
-  }
-  .evo-fig figcaption em { font-style: italic; color: var(--fg); }
-  .evo-fig figcaption strong { color: var(--accent); font-weight: 600; }
+  .evo-fig { margin: 1.75rem 0; padding: 1.35rem; border: 1px solid var(--rule-strong); border-radius: .7rem; background: var(--surface-strong); font-family: var(--font-sans); }
+  .evo-kicker { color: var(--accent); font: 600 .65rem var(--font-mono); letter-spacing: .1em; }
+  .evo-heading h4 { margin: .4rem 0 .35rem; color: var(--fg); font-size: 1.05rem; line-height: 1.45; }
+  .evo-heading p { margin: 0; color: var(--fg-muted); font-size: .8rem; line-height: 1.6; }
+  .evo-scroll { overflow-x: auto; overscroll-behavior-x: contain; margin: .3rem 0 .7rem; border-radius: .3rem; }
+  .evo-scroll:focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
+  .evo-scroll-hint { display: none; margin: .75rem 0 0; color: var(--accent); font-size: .73rem; }
+  .evo-fig svg { display: block; width: 100%; min-width: 780px; height: auto; font-family: var(--font-sans); }
+  .evo-msa { --stream: var(--data-msa); }
+  .evo-pair { --stream: var(--data-pair); }
+  .evo-lane-bg { fill: color-mix(in oklab, var(--stream) 5%, var(--bg)); }
+  .evo-lane-label { fill: var(--stream); font-size: 16px; font-weight: 600; }
+  .evo-endpoint { fill: var(--stream); font: 12px var(--font-mono); }
+  .evo-flow, .evo-cross { stroke: var(--stream); stroke-width: 1.8; fill: none; }
+  .evo-cross { stroke-width: 2; stroke-linejoin: round; }
+  .evo-dot { fill: var(--stream); }
+  .evo-cross-label { fill: var(--stream); font-size: 13px; }
+  .evo-block rect { fill: var(--surface-strong); stroke: color-mix(in oklab, var(--stream) 58%, var(--rule)); stroke-width: 1.2; }
+  .evo-block text { fill: var(--fg); font-size: 14px; font-weight: 600; }
+  .evo-block .evo-number { fill: var(--stream); font: 600 12px var(--font-mono); }
+  .evo-block .evo-sub { fill: var(--fg-muted); font-size: 11px; font-weight: 400; }
+  .evo-fig figcaption { margin: 0; padding-top: .9rem; border-top: 1px solid var(--rule); font-size: .76rem; color: var(--fg-muted); line-height: 1.65; }
+  .evo-fig figcaption strong { color: var(--fg); }
+  @media (max-width: 940px) { .evo-scroll-hint { display: block; } }
+  @media (max-width: 520px) { .evo-fig { padding: 1rem .8rem; } }
 </style>

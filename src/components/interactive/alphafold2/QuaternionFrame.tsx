@@ -200,9 +200,20 @@ class CanvasBoundary extends Component<{ children: ReactNode }, BoundaryState> {
 
 export default function QuaternionFrame() {
   const [q, setQ] = useState<Q>(IDENTITY);
+  const [comparison, setComparison] = useState('');
   const qn = normalize(q);
   const rawNorm = Math.hypot(q.w, q.x, q.y, q.z);
   const M = quatToMat3(q);
+  // Choose the equivalent sign with w >= 0 for a principal angle in [0, 180°].
+  const angle = 2 * Math.acos(Math.min(1, Math.abs(qn.w))) * 180 / Math.PI;
+  const choosePreset = (next: Q) => { setQ(next); setComparison(''); };
+  const compareScale = (scale: number) => {
+    const next = { w: scale * q.w, x: scale * q.x, y: scale * q.y, z: scale * q.z };
+    const nextM = quatToMat3(next);
+    const delta = Math.max(...M.flat().map((value, i) => Math.abs(value - nextM.flat()[i])));
+    setQ(next);
+    setComparison(`${scale < 0 ? 'All four signs reversed' : 'All four components halved'}. Largest matrix change: ${delta < 1e-12 ? '< 10⁻¹²' : delta.toExponential(2)}.`);
+  };
 
   const setK = (k: keyof Q) => (e: React.ChangeEvent<HTMLInputElement>) => {
     // Capture the value synchronously *before* we enter the functional setState
@@ -214,15 +225,23 @@ export default function QuaternionFrame() {
     const value = Number(e.currentTarget.value);
     if (!Number.isFinite(value)) return;
     setQ((prev) => ({ ...prev, [k]: value }));
+    setComparison('');
   };
 
   return (
     <figure className="qf-root">
+      <div className="qf-intro"><strong>Quaternion rotation</strong><span>Drag the sliders or choose a preset.</span></div>
+          <div className="qf-presets" role="group" aria-label="Rotation presets">
+            <button type="button" onClick={() => choosePreset(IDENTITY)} className="qf-btn">Identity</button>
+            <button type="button" onClick={() => choosePreset({ w: Math.SQRT1_2, x: Math.SQRT1_2, y: 0, z: 0 })} className="qf-btn">90° X</button>
+            <button type="button" onClick={() => choosePreset({ w: Math.SQRT1_2, x: 0, y: Math.SQRT1_2, z: 0 })} className="qf-btn">90° Y</button>
+            <button type="button" onClick={() => choosePreset({ w: 0.5, x: 0.5, y: 0.5, z: 0.5 })} className="qf-btn">120° diagonal</button>
+          </div>
       <div className="qf-layout">
         <div className="qf-canvas">
           <CanvasBoundary>
             <Canvas
-              camera={{ position: [2.5, 1.7, 2.5], fov: 42 }}
+              camera={{ position: [3.2, 2.2, 3.2], fov: 42 }}
               dpr={[1, 2]}
               gl={{ antialias: true, preserveDrawingBuffer: false }}
             >
@@ -256,9 +275,11 @@ export default function QuaternionFrame() {
             ))}
           </div>
 
+          {rawNorm < 1e-6 && <p className="qf-zero" role="status">A zero quaternion does not define a rotation. This demo displays the identity as a fallback; increase any component to define a rotation.</p>}
+
           <div className="qf-norm">
             <span>‖q‖ = {rawNorm.toFixed(3)}</span>
-            <span className="qf-norm-sep">→ normalized:</span>
+            <span className="qf-norm-sep">Normalized q:</span>
             <code>({qn.w.toFixed(2)}, {qn.x.toFixed(2)}, {qn.y.toFixed(2)}, {qn.z.toFixed(2)})</code>
           </div>
 
@@ -267,45 +288,27 @@ export default function QuaternionFrame() {
             <div className="qf-matrix-grid">
               {M.flat().map((v, i) => (
                 <span key={i} className={`qf-cell ${v >= 0 ? 'qf-cell-pos' : 'qf-cell-neg'}`}>
-                  {v >= 0 ? '\u00A0' : ''}{v.toFixed(2)}
+                  {v >= 0 || Math.abs(v) < 0.005 ? '\u00A0' : ''}{(Math.abs(v) < 0.005 ? 0 : v).toFixed(2)}
                 </span>
               ))}
             </div>
           </div>
 
-          <div className="qf-presets">
-            <button type="button" onClick={() => setQ(IDENTITY)} className="qf-btn">Identity</button>
-            <button type="button" onClick={() => setQ(normalize(q))} className="qf-btn">Normalize</button>
-            <button
-              type="button"
-              onClick={() => setQ({ w: Math.SQRT1_2, x: Math.SQRT1_2, y: 0, z: 0 })}
-              className="qf-btn"
-            >
-              90° about X
-            </button>
-            <button
-              type="button"
-              onClick={() => setQ({ w: Math.SQRT1_2, x: 0, y: Math.SQRT1_2, z: 0 })}
-              className="qf-btn"
-            >
-              90° about Y
-            </button>
-            <button
-              type="button"
-              onClick={() => setQ({ w: 0.5, x: 0.5, y: 0.5, z: 0.5 })}
-              className="qf-btn"
-            >
-              120° diag
-            </button>
+          <div className="qf-outcome">
+            <span>{angle.toFixed(1)}° rotation · local x →</span>
+            <code>({[M[0][0], M[1][0], M[2][0]].map((value) => (Math.abs(value) < 0.005 ? 0 : value).toFixed(2)).join(', ')})</code>
           </div>
+          <div className="qf-presets" role="group" aria-label="Equivalent quaternion representations">
+            <button type="button" disabled={rawNorm < 1e-6} onClick={() => compareScale(-1)} className="qf-btn" aria-label="Reverse all four quaternion signs">q → −q</button>
+            <button type="button" disabled={rawNorm < 2e-6} onClick={() => compareScale(0.5)} className="qf-btn" aria-label="Halve all four quaternion components">q → q / 2</button>
+          </div>
+          {comparison && <p className="qf-comparison" role="status">{comparison}</p>}
         </div>
       </div>
 
       <figcaption className="qf-caption">
-        Drag inside the scene to rotate the camera. Adjust the sliders to change the quaternion; the matrix, the
-        local frame, and the attached cube all update live. Only the direction of <em>q</em> matters — the
-        rotation is unchanged if you scale all four components uniformly, since we always normalize (and treat
-        the zero quaternion as the identity).
+        Drag the scene to move the camera. Sliders change the rotation; the demo normalizes nonzero inputs.
+        R(q)'s columns give the local axes in world coordinates. Scaling q or reversing its signs preserves R(q).
       </figcaption>
 
       <style>{`
@@ -317,13 +320,20 @@ export default function QuaternionFrame() {
           background: color-mix(in oklab, var(--bg) 94%, var(--rule) 6%);
           font-family: var(--font-sans);
         }
+        .qf-intro { display: flex; flex-wrap: wrap; gap: 0.3rem 0.8rem; align-items: baseline; margin-bottom: 0.7rem; }
+        .qf-intro strong { color: var(--fg); font-size: 0.95rem; }
+        .qf-intro > span { color: var(--fg-muted); font-size: 0.77rem; }
+        .qf-outcome { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem 0.5rem; color: var(--accent); font-size: 0.75rem; line-height: 1.5; }
+        .qf-outcome code { font-family: var(--font-mono); }
+        .qf-comparison { margin: 0 !important; color: var(--accent); font-size: 0.72rem; line-height: 1.5; }
+        .qf-zero { margin: 0; color: #8b4b20; font-size: 0.77rem; line-height: 1.6; }
         .qf-layout {
           display: grid;
-          grid-template-columns: 1fr;
+          grid-template-columns: minmax(0, 1fr);
           gap: 1rem;
         }
         @media (min-width: 720px) {
-          .qf-layout { grid-template-columns: 1.1fr 1fr; }
+          .qf-layout { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
         }
         .qf-canvas {
           position: relative;
@@ -343,7 +353,9 @@ export default function QuaternionFrame() {
           bottom: 0.6rem;
           left: 0.7rem;
           display: flex;
-          gap: 0.8rem;
+          gap: 0.3rem 0.8rem;
+          right: 0.7rem;
+          flex-wrap: wrap;
           font-size: 0.72rem;
           color: var(--fg-muted);
           align-items: center;
@@ -379,7 +391,7 @@ export default function QuaternionFrame() {
         .qf-panel {
           display: flex;
           flex-direction: column;
-          gap: 0.9rem;
+          gap: 0.65rem;
           font-size: 0.88rem;
         }
         .qf-sliders { display: flex; flex-direction: column; gap: 0.35rem; }
@@ -430,9 +442,11 @@ export default function QuaternionFrame() {
         .qf-cell-neg { color: var(--accent); }
 
         .qf-presets { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .qf-root > .qf-presets { margin-bottom: 0.75rem; }
         .qf-btn {
           font-size: 0.78rem;
-          padding: 0.25rem 0.6rem;
+          padding: 0.4rem 0.6rem;
+          min-height: 2rem;
           border: 1px solid var(--rule);
           border-radius: 3px;
           background: transparent;
@@ -440,10 +454,12 @@ export default function QuaternionFrame() {
           cursor: pointer;
         }
         .qf-btn:hover { border-color: var(--fg-muted); }
+        .qf-btn:disabled { opacity: 0.5; cursor: default; }
+        .qf-slider input { min-width: 0; width: 100%; min-height: 1.8rem; accent-color: var(--accent); }
 
         .qf-caption {
           margin-top: 0.9rem;
-          font-size: 0.86rem;
+          font-size: 0.76rem;
           color: var(--fg-muted);
           line-height: 1.5;
         }

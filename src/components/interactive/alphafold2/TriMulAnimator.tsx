@@ -13,34 +13,21 @@ interface Props {
 
 const CELL = 30;
 const PAD = 44;
-const GUTTER = 6;
+const GUTTER = 2;
 
 // Small helper: clamp an integer to [0, max]
 const clamp = (x: number, max: number) => Math.max(0, Math.min(max, x));
 
-/**
- * Visualizer for AlphaFold2's triangle multiplicative update (Algorithms 11
- * and 12 of the supplement). The operation itself is:
- *
- *   outgoing:   z_ij  <-  g_ij ⊙ Linear( sum_k  a_ik ⊙ b_jk )
- *   incoming:   z_ij  <-  g_ij ⊙ Linear( sum_k  a_ki ⊙ b_kj )
- *
- * The component animates the sum-over-k step by step, so that for a chosen
- * target pair (i, j) you can see which pair of cells the model is combining
- * at each step. In outgoing mode the two contributing cells sit on row i and
- * row j; in incoming mode they sit on column i and column j.
- *
- * The grid is just a stylised NxN pair representation. Click any cell to
- * change the target pair. The "triangle" in the name is literal: for every
- * k, the three cells (i,j), (i,k), (j,k) — or their transposed incoming
- * counterparts — form a triangle in index space, and every outer Evoformer
- * pass shrinks the error on each one of those three edges jointly.
+/** Interactive tensor-coordinate view of the triangle contraction.
+ * A and B are distinct projected/gated features. Their elementwise
+ * products are summed over every k before the learned output transforms.
  */
 export default function TriMulAnimator({
   N = 10,
   initial = { i: 2, j: 7 },
   initialMode = 'outgoing',
 }: Props) {
+  N = Math.max(2, Math.min(16, Math.trunc(N)));
   const [mode, setMode] = useState<Mode>(initialMode);
   const [selected, setSelected] = useState(() => ({
     i: clamp(initial.i, N - 1),
@@ -65,25 +52,18 @@ export default function TriMulAnimator({
     return () => mq.removeEventListener?.('change', apply);
   }, []);
 
-  // Drive the k index when playing. We skip k == i and k == j because the
-  // diagonal k's are trivially self-contributions; the paper's code doesn't
-  // mask them, but they add no pedagogical value.
+  // Include every residue, including k == i and k == j.
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number>(0);
   useEffect(() => {
     if (!playing) return;
     let cancelled = false;
+    lastTickRef.current = performance.now();
     const tick = (t: number) => {
       if (cancelled) return;
       if (t - lastTickRef.current >= speedMs) {
         lastTickRef.current = t;
-        setK((prev) => {
-          let next = (prev + 1) % N;
-          if (next === selected.i || next === selected.j) {
-            next = (next + 1) % N;
-          }
-          return next;
-        });
+        setK((prev) => (prev + 1) % N);
       }
       rafRef.current = requestAnimationFrame(tick);
     };
@@ -102,13 +82,13 @@ export default function TriMulAnimator({
     return { a, b, z };
   }, [i, j, k, mode]);
 
-  const width = N * CELL + 2 * PAD;
-  const height = N * CELL + 2 * PAD;
+  const width = N * (CELL + GUTTER) + 2 * PAD;
+  const height = N * (CELL + GUTTER) + 2 * PAD;
 
   // Convert (row, col) -> SVG rectangle top-left
   const cellXY = (r: number, c: number) => ({
-    x: PAD + c * (CELL + GUTTER / N) - (c * GUTTER) / (N - 1) + c,
-    y: PAD + r * (CELL + GUTTER / N) - (r * GUTTER) / (N - 1) + r,
+    x: PAD + c * (CELL + GUTTER),
+    y: PAD + r * (CELL + GUTTER),
   });
   // Cell center, for drawing the triangle
   const center = (r: number, c: number) => {
@@ -118,30 +98,24 @@ export default function TriMulAnimator({
 
   const onCellClick = (r: number, c: number) => {
     setSelected({ i: r, j: c });
+    setPlaying(false);
   };
 
   const stepOnce = useCallback(() => {
     setPlaying(false);
-    setK((prev) => {
-      let next = (prev + 1) % N;
-      if (next === selected.i || next === selected.j) next = (next + 1) % N;
-      return next;
-    });
-  }, [N, selected.i, selected.j]);
+    setK((prev) => (prev + 1) % N);
+  }, [N]);
 
   const reset = useCallback(() => {
     setK(0);
     setPlaying(false);
   }, []);
 
-  const equation =
-    mode === 'outgoing'
-      ? `z_{${i},${j}} \\mathrel{+}= a_{${i},${k}} \\odot b_{${j},${k}}`
-      : `z_{${i},${j}} \\mathrel{+}= a_{${k},${i}} \\odot b_{${k},${j}}`;
+  const equation = `u(${k}) = A[${step.a.r}, ${step.a.c}] ⊙ B[${step.b.r}, ${step.b.c}]`;
 
   // Build the cell grid. Each cell is a <rect>. Visual states:
   // - base: subtle fill
-  // - diagonal (r == c): slightly different tint (self-pairs, no data)
+  // - diagonal (r == c): self-pairs, included in the contraction
   // - target (i, j): accent border
   // - a-cell and b-cell: accent fill (current k)
   const cells = [];
@@ -168,9 +142,7 @@ export default function TriMulAnimator({
           ry={3}
           className={cls}
           onClick={() => onCellClick(r, c)}
-          role="button"
-          aria-label={`Select pair (${r}, ${c})`}
-          tabIndex={0}
+          aria-label={`Pair (${r}, ${c})`}
         />,
       );
     }
@@ -184,21 +156,22 @@ export default function TriMulAnimator({
 
   return (
     <figure className="tri-root">
+      <figcaption className="tri-heading"><strong>Triangle multiplicative update</strong><span>Pick a pair, then follow the sweep through k.</span></figcaption>
       <div className="tri-controls" role="group" aria-label="Animation controls">
-        <div className="tri-modeswitch" role="tablist" aria-label="Update direction">
+        <div className="tri-modeswitch" role="group" aria-label="Update direction">
           <button
-            role="tab"
-            aria-selected={mode === 'outgoing'}
+            type="button"
+            aria-pressed={mode === 'outgoing'}
             className={mode === 'outgoing' ? 'tri-seg tri-seg--on' : 'tri-seg'}
-            onClick={() => setMode('outgoing')}
+            onClick={() => { setMode('outgoing'); setPlaying(false); }}
           >
             Outgoing
           </button>
           <button
-            role="tab"
-            aria-selected={mode === 'incoming'}
+            type="button"
+            aria-pressed={mode === 'incoming'}
             className={mode === 'incoming' ? 'tri-seg tri-seg--on' : 'tri-seg'}
-            onClick={() => setMode('incoming')}
+            onClick={() => { setMode('incoming'); setPlaying(false); }}
           >
             Incoming
           </button>
@@ -235,6 +208,13 @@ export default function TriMulAnimator({
         </label>
       </div>
 
+      <div className="tri-scrub">
+        <label>Residue i<select aria-label="Target residue i" value={i} onChange={(event) => onCellClick(Number(event.target.value), j)}>{Array.from({length:N}, (_, index) => <option key={index} value={index}>{index}</option>)}</select></label>
+        <label>Residue j<select aria-label="Target residue j" value={j} onChange={(event) => onCellClick(i, Number(event.target.value))}>{Array.from({length:N}, (_, index) => <option key={index} value={index}>{index}</option>)}</select></label>
+        <label className="tri-k-slider">Third residue k <strong>{k}</strong><input type="range" min={0} max={N-1} step={1} value={k} aria-label="Third residue k" onChange={(event) => { setK(Number(event.target.value)); setPlaying(false); }} /></label>
+      </div>
+      <div className="tri-live-key"><span className="tri-key-z">Target z[{i}, {j}]</span><span className="tri-key-a">A[{step.a.r}, {step.a.c}]</span><span className="tri-key-b">B[{step.b.r}, {step.b.c}]</span></div>
+
       <div className="tri-viewport">
         <svg
           viewBox={`0 0 ${width} ${height}`}
@@ -242,11 +222,13 @@ export default function TriMulAnimator({
           role="img"
           aria-label={`Triangle multiplicative update, ${mode} mode, target pair ${i},${j}, current k=${k}`}
         >
+          <text x={width / 2} y={16} textAnchor="middle" className="tri-axis-title">Column</text>
+          <text x={10} y={height / 2} textAnchor="middle" transform={`rotate(-90 10 ${height / 2})`} className="tri-axis-title">Row</text>
           {/* Axis labels */}
           {Array.from({ length: N }).map((_, idx) => (
             <g key={`label-${idx}`}>
               <text
-                x={PAD + idx * (CELL + GUTTER / N) - (idx * GUTTER) / (N - 1) + idx + CELL / 2}
+                x={PAD + idx * (CELL + GUTTER) + CELL / 2}
                 y={PAD - 12}
                 textAnchor="middle"
                 className={`tri-label${idx === step.z.c ? ' tri-label--active' : ''}`}
@@ -255,7 +237,7 @@ export default function TriMulAnimator({
               </text>
               <text
                 x={PAD - 14}
-                y={PAD + idx * (CELL + GUTTER / N) - (idx * GUTTER) / (N - 1) + idx + CELL / 2 + 4}
+                y={PAD + idx * (CELL + GUTTER) + CELL / 2 + 4}
                 textAnchor="end"
                 className={`tri-label${idx === step.z.r ? ' tri-label--active' : ''}`}
               >
@@ -274,35 +256,15 @@ export default function TriMulAnimator({
         </svg>
       </div>
 
-      <figcaption className="tri-caption">
+      <div className="tri-caption">
         <div className="tri-eqn">
           <span className="tri-eqn-k">k = {k}</span>
-          <code>{equation.replace(/\\mathrel\{\+\}=/, '+=').replace(/\\odot/g, '⊙')}</code>
+          <code>{equation}</code>
         </div>
-        <div className="tri-hint">
-          {mode === 'outgoing' ? (
-            <>
-              <strong>Outgoing.</strong> For the target edge <em>z<sub>{i},{j}</sub></em>, sum over
-              every residue <em>k</em> the elementwise product of row-<em>i</em> entry{' '}
-              <em>a<sub>{i},k</sub></em> and row-<em>j</em> entry <em>b<sub>{j},k</sub></em>. Each{' '}
-              <em>k</em> closes a triangle <em>i → k ← j</em>.
-            </>
-          ) : (
-            <>
-              <strong>Incoming.</strong> For the target edge <em>z<sub>{i},{j}</sub></em>, sum over
-              every residue <em>k</em> the elementwise product of column-<em>i</em> entry{' '}
-              <em>a<sub>k,{i}</sub></em> and column-<em>j</em> entry <em>b<sub>k,{j}</sub></em>.
-              Each <em>k</em> closes a triangle <em>k → i, k → j</em>.
-            </>
-          )}
-          {reduced && (
-            <>
-              {' '}
-              <span className="tri-muted">(Reduced-motion mode: step with the Step button.)</span>
-            </>
-          )}
-        </div>
-      </figcaption>
+        <p className="tri-hint">{mode === 'outgoing' ? `The two inputs share column k = ${k}; they come from rows i and j of separate projections.` : `The two inputs share row k = ${k}; they come from columns i and j of separate projections.`} The update multiplies matching channels and sums the products over all {N} values of k.</p>
+        <details className="tri-detail"><summary>How this becomes a pair update</summary><p>A and B are separate learned projections with input gates. After the sum, AlphaFold2 applies LayerNorm, a linear layer, and an output gate, then adds the result to z[{i}, {j}]. The sum includes every k, even k = i or k = j. Dashed lines connect matrix entries; they do not show a protein’s physical geometry.</p></details>
+        {reduced && <p className="tri-hint">Reduced motion is on. Use Step or the k slider, or press Play to animate.</p>}
+      </div>
 
       <style>{`
         .tri-root {
@@ -339,7 +301,7 @@ export default function TriMulAnimator({
         .tri-seg:last-child { border-right: none; }
         .tri-seg--on {
           background: var(--accent);
-          color: white;
+          color: var(--bg);
         }
         .tri-btns { display: inline-flex; gap: 0.35rem; }
         .tri-btn {
@@ -369,7 +331,7 @@ export default function TriMulAnimator({
         .tri-svg {
           max-width: 100%;
           height: auto;
-          min-width: 360px;
+          width: min(100%, 480px);
         }
         .tri-cell {
           fill: color-mix(in oklab, var(--rule) 55%, transparent);
@@ -410,10 +372,13 @@ export default function TriMulAnimator({
           stroke: var(--accent);
           stroke-width: 1.25;
           stroke-dasharray: 3 3;
+          pointer-events: none;
           opacity: 0.7;
         }
+        .tri-dot { pointer-events: none; }
         .tri-dot--z { fill: var(--accent); }
-        .tri-dot--a, .tri-dot--b { fill: var(--accent); }
+        .tri-dot--a { fill: var(--accent); }
+        .tri-dot--b { fill: var(--data-msa); }
         .tri-caption {
           margin-top: 0.8rem;
           display: flex;
@@ -431,6 +396,8 @@ export default function TriMulAnimator({
           background: color-mix(in oklab, var(--rule) 25%, transparent);
           border-radius: 4px;
           font-size: 0.85rem;
+          flex-wrap: wrap;
+          overflow-wrap: anywhere;
         }
         .tri-eqn-k {
           font-weight: 600;
@@ -444,6 +411,15 @@ export default function TriMulAnimator({
         }
         .tri-hint strong { color: var(--fg); }
         .tri-muted { font-style: italic; }
+
+        .tri-heading { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:.35rem 1rem; margin:0 0 1rem; color:var(--fg); }
+        .tri-heading strong { font:600 1rem/1.4 var(--font-sans); }.tri-heading span { color:var(--fg-muted); font-size:.76rem; }
+        .tri-scrub { display:flex; align-items:end; flex-wrap:wrap; gap:.75rem; padding:.8rem; background:var(--surface); border:1px solid var(--rule); border-radius:.45rem; }
+        .tri-scrub label { display:grid; gap:.3rem; font-size:.69rem; color:var(--fg-muted); }.tri-scrub select { min-width:4rem; min-height:36px; padding:.35rem .6rem; background:var(--surface-strong); color:var(--fg); border:1px solid var(--rule); border-radius:.3rem; font-size:.8rem; }.tri-scrub .tri-k-slider { flex:1; min-width:130px; grid-template-columns:1fr auto; }.tri-k-slider input { grid-column:1 / -1; width:100%; accent-color:var(--accent); }.tri-k-slider strong { color:var(--accent); font-family:var(--font-mono); }
+        .tri-live-key { display:flex; justify-content:center; flex-wrap:wrap; gap:.5rem 1rem; margin:1rem 0 .1rem; font:600 .7rem var(--font-mono); }.tri-live-key span::before { display:inline-block; width:.5rem; height:.5rem; margin-right:.4rem; border-radius:2px; content:''; background:currentColor; }.tri-key-z,.tri-key-a { color:var(--accent); }.tri-key-z::before { background:none!important; outline:1.5px solid currentColor; }.tri-key-b { color:var(--data-msa); }.tri-axis-title { fill:var(--fg-muted); font:11px var(--font-sans); }
+        .tri-cell--b { fill:color-mix(in oklab,var(--data-msa) 42%,var(--bg)); stroke:var(--data-msa); }.tri-cell--target { stroke-width:2.5; stroke:var(--fg); }.tri-cell--a.tri-cell--b { fill:color-mix(in oklab,var(--data-msa) 48%,var(--accent)); }.tri-cell:focus-visible { stroke:var(--focus); stroke-width:3; }
+        .tri-root .tri-hint { margin:.4rem 0 0; font-size:.76rem; line-height:1.65; }.tri-detail { margin-top:.7rem; border-top:1px solid var(--rule); padding-top:.6rem; font-size:.74rem; color:var(--fg-muted); }.tri-detail summary { cursor:pointer; color:var(--accent); }.tri-root .tri-detail p { margin:.5rem 0 0; line-height:1.7; }.tri-root .tri-eqn code { border:0; background:none; padding:0; font-size:.79rem; }.tri-root .tri-btn,.tri-root .tri-seg { min-height:36px; }.tri-speed input { max-width:105px; accent-color:var(--accent); }
+        @media(max-width:520px) { .tri-root { padding:.85rem; }.tri-controls { gap:.6rem; }.tri-speed { margin-left:0; }.tri-svg { min-width:0; }.tri-btns { gap:.3rem; }.tri-btn { padding:.35rem .6rem; }.tri-live-key { gap:.55rem; font-size:.64rem; }.tri-scrub { gap:.55rem; }.tri-eqn { gap:.4rem; }.tri-heading span { font-size:.72rem; } }
       `}</style>
     </figure>
   );

@@ -1,6 +1,7 @@
 ---
 interface Props {
   frontmatter: {
+    slug: string;
     title: string;
     subtitle?: string;
     description: string;
@@ -20,9 +21,10 @@ interface Props {
     referenceRepo?: { url: string; commit: string };
   };
   chapterCount: number;
+  headings: { depth: number; slug: string; text: string }[];
 }
 
-const { frontmatter, chapterCount } = Astro.props;
+const { frontmatter, chapterCount, headings } = Astro.props;
 const published = frontmatter.publishedDate.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 const updated = frontmatter.updatedDate?.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 const shortCommit = frontmatter.referenceRepo?.commit?.slice(0, 7);
@@ -36,255 +38,145 @@ const sourceIdentifier = frontmatter.doi
   : frontmatter.arxivId
     ? `arXiv ${frontmatter.arxivId}`
     : undefined;
+const isAlphaFold = frontmatter.slug === 'alphafold2';
+const summary = isAlphaFold
+  ? 'An explanation of Jumper et al. (2021), with code from a compact PyTorch implementation. Covers the Evoformer, Structure Module, and training losses.'
+  : frontmatter.subtitle ?? frontmatter.description;
+const readingPaths = isAlphaFold
+  ? [
+      { slug: '0-prelims', title: 'Background and notation', detail: 'Protein biology and the reference implementation', chapters: 'Chapters 0–1' },
+      { slug: '2-input-representations', title: 'Inputs and the Evoformer', detail: 'MSA features, attention, pair updates, and recycling', chapters: 'Chapters 2–9' },
+      { slug: '10-the-structure-module', title: 'Structure prediction and losses', detail: 'Structure prediction, confidence, and loss', chapters: 'Chapters 10–12' },
+      { slug: '13-training', title: 'Training and a worked example', detail: 'Training setup, a small experiment, and limitations', chapters: 'Chapters 13–15' },
+    ].filter((path) => headings.some((heading) => heading.slug === path.slug))
+  : headings.filter((heading) => heading.depth === 2).slice(0, 4).map((heading) => ({
+      slug: heading.slug, title: heading.text, detail: '', chapters: 'Read chapter',
+    }));
 ---
 
-<header class="paper-header">
-  <a class="paper-breadcrumb" href="/">Papers</a>
+<header class="paper-header" id="paper-top">
+  <a class="paper-breadcrumb" href="/">All papers</a>
 
   <div class="paper-kicker-row">
-    <p>Paper annotation</p>
+    <p><span class="paper-kicker-dot" aria-hidden="true"></span>Paper annotation</p>
     <p>{frontmatter.venue ? `${frontmatter.venue} · ` : ''}{frontmatter.paperYear}</p>
   </div>
 
   <h1>{frontmatter.title}</h1>
-  <p class="paper-summary">{frontmatter.subtitle ?? frontmatter.description}</p>
-
-  <p class="paper-source">
-    <span>Source</span>
-    {frontmatter.authors.join(', ')} ({frontmatter.paperYear}){frontmatter.venue ? `, ${frontmatter.venue}` : ''}.
-    {sourceIdentifier && <> {sourceIdentifier}.</>}
-  </p>
+  <p class="paper-summary">{summary}</p>
+  <p class="paper-byline">Annotated by <a href="https://chrishayduk.com" rel="me author">{frontmatter.annotator}</a></p>
 
   <nav class="paper-links" aria-label="Paper resources">
+    <a class="paper-start" href="#paper-introduction">Start reading <span aria-hidden="true">↓</span></a>
     {originalPaperUrl && (
-      <a href={originalPaperUrl} target="_blank" rel="noopener">Original paper <span aria-hidden="true">↗</span></a>
+      <a href={originalPaperUrl} target="_blank" rel="noopener">Read the original <span aria-hidden="true">↗</span></a>
     )}
     {frontmatter.referenceRepo && (
       <a href={`${frontmatter.referenceRepo.url}/tree/${frontmatter.referenceRepo.commit}`} target="_blank" rel="noopener">
-        Reference implementation <span aria-hidden="true">↗</span>
+        View the code <span aria-hidden="true">↗</span>
       </a>
     )}
   </nav>
+  <a class="paper-resume" id="paper-resume" hidden href="#paper-introduction">
+    <span>Continue reading:</span><strong id="paper-resume-label"></strong><span aria-hidden="true">→</span>
+  </a>
 
-  <dl class="paper-stats" aria-label="Annotation statistics">
-    {frontmatter.readingTimeMinutes && <div><dt>Reading time</dt><dd>{frontmatter.readingTimeMinutes} min</dd></div>}
+  <dl class="paper-stats" aria-label="What is in this walkthrough">
+    {frontmatter.readingTimeMinutes && <div><dt>Reading time</dt><dd>{frontmatter.readingTimeMinutes}<span> min</span></dd></div>}
     <div><dt>Chapters</dt><dd>{frontmatter.chapterCount ?? chapterCount}</dd></div>
     {frontmatter.codeSnippetCount && <div><dt>Code excerpts</dt><dd>{frontmatter.codeSnippetCount}</dd></div>}
     {frontmatter.interactiveCount && <div><dt>Interactive figures</dt><dd>{frontmatter.interactiveCount}</dd></div>}
   </dl>
 
-  <nav class="contents-overview" aria-labelledby="contents-overview-title">
-    <h2 id="contents-overview-title">Contents overview</h2>
+  {readingPaths.length > 0 && <nav class="contents-overview" aria-labelledby="contents-overview-title">
+    <div class="contents-overview-heading">
+      <h2 id="contents-overview-title">Sections</h2>
+      <p>Start with the background, or select a section below.</p>
+    </div>
     <ol>
-      <li><a href="#0-prelims"><span>01</span><strong>Foundations</strong><small>Sections 0–1</small></a></li>
-      <li><a href="#2-input-representations"><span>02</span><strong>Representations</strong><small>Sections 2–9</small></a></li>
-      <li><a href="#10-the-structure-module"><span>03</span><strong>Structure and loss</strong><small>Sections 10–12</small></a></li>
-      <li><a href="#13-training"><span>04</span><strong>Training and limitations</strong><small>Sections 13–15</small></a></li>
+      {readingPaths.map((path, index) => <li><a href={`#${path.slug}`}>
+        <span class="path-number">{String(index + 1).padStart(2, '0')}</span>
+        <span class="path-copy"><small>{path.chapters}</small><strong>{path.title}</strong>{path.detail && <span>{path.detail}</span>}</span>
+        <span class="path-arrow" aria-hidden="true">↗</span>
+      </a></li>)}
     </ol>
-  </nav>
+  </nav>}
 
-  <div class="paper-provenance">
-    <span>Annotation published {published}{updated && updated !== published && <> · Updated {updated}</>}</span>
-    <span>Annotated by <a href="https://chrishayduk.com" rel="me author">{frontmatter.annotator}</a></span>
-    {shortCommit && <span>Reference commit <code>{shortCommit}</code></span>}
-  </div>
+  <details class="paper-provenance">
+    <summary>Source and annotation details <span aria-hidden="true">+</span></summary>
+    <div>
+      <p><strong>Original paper.</strong> {frontmatter.authors.join(', ')} ({frontmatter.paperYear}){frontmatter.venue ? `, ${frontmatter.venue}` : ''}.{sourceIdentifier && <> {sourceIdentifier}.</>}</p>
+      <p>Annotation published {published}{updated && updated !== published && <> · Updated {updated}</>}.</p>
+      {shortCommit && <p>Code excerpts link to reference commit <code>{shortCommit}</code>.</p>}
+    </div>
+  </details>
 </header>
 
 <style>
-  .paper-header {
-    margin-bottom: 3.75rem;
-    padding-bottom: 3rem;
-    border-bottom: 1px solid var(--rule);
-  }
-
-  .paper-breadcrumb {
-    display: inline-block;
-    margin-bottom: 2.5rem;
-    color: var(--fg-muted);
-    font: 500 0.7rem/1.2 var(--font-sans);
-    text-decoration: none;
-  }
-
-  .paper-breadcrumb::before {
-    margin-right: 0.4rem;
-    content: "←";
-  }
-
-  .paper-breadcrumb:hover { color: var(--fg); }
-
-  .paper-kicker-row {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 0.9rem;
-    color: var(--fg-muted);
-    font: 600 0.66rem/1.3 var(--font-sans);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  .paper-kicker-row p { margin: 0; }
-
-  .paper-header h1 {
-    max-width: 16ch;
-    margin: 0;
-    color: var(--fg);
-    font-size: clamp(2.7rem, 5vw, 4.35rem);
-    font-weight: 500;
-    letter-spacing: -0.035em;
-    line-height: 1;
-    text-wrap: balance;
-  }
-
-  .paper-summary {
-    max-width: 58ch;
-    margin: 1.25rem 0 0;
-    color: var(--fg-muted);
-    font-size: clamp(1.05rem, 1.3vw, 1.2rem);
-    line-height: 1.55;
-  }
-
-  .paper-source {
-    max-width: 72ch;
-    margin: 1.25rem 0 0;
-    color: var(--fg-muted);
-    font: 400 0.76rem/1.6 var(--font-sans);
-  }
-
-  .paper-source > span {
-    margin-right: 0.45rem;
-    color: var(--fg);
-    font-weight: 600;
-  }
-
-  .paper-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem 1.25rem;
-    margin-top: 1.4rem;
-    font-family: var(--font-sans);
-  }
-
-  .paper-links a {
-    color: var(--fg);
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-underline-offset: 0.25em;
-  }
-
-  .paper-links a:hover { color: var(--accent); }
-
-  .paper-stats {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    margin: 2.25rem 0 0;
-    border-block: 1px solid var(--rule);
-  }
-
-  .paper-stats > div {
-    min-width: 0;
-    padding: 0.9rem 0.9rem 0.9rem 0;
-  }
-
-  .paper-stats > div + div {
-    padding-left: 0.9rem;
-    border-left: 1px solid var(--rule);
-  }
-
-  .paper-stats dt {
-    color: var(--fg-muted);
-    font: 500 0.61rem/1.3 var(--font-sans);
-  }
-
-  .paper-stats dd {
-    margin: 0.25rem 0 0;
-    color: var(--fg);
-    font: 500 1.1rem/1.15 var(--font-serif);
-    font-variant-numeric: tabular-nums;
-  }
-
-  .contents-overview { margin-top: 2.25rem; }
-
-  .contents-overview h2 {
-    margin: 0 0 0.75rem;
-    padding: 0;
-    border: 0;
-    color: var(--fg);
-    font: 600 0.72rem/1.3 var(--font-sans);
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-  }
-
-  .contents-overview ol {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    margin: 0;
-    padding: 0;
-    border-top: 1px solid var(--rule);
-    list-style: none;
-  }
-
-  .contents-overview li {
-    margin: 0;
-    border-bottom: 1px solid var(--rule);
-  }
-
-  .contents-overview li:nth-child(odd) { border-right: 1px solid var(--rule); }
-
-  .contents-overview a {
-    min-height: 3.6rem;
-    padding: 0.75rem 0.8rem;
-    display: grid;
-    grid-template-columns: 1.7rem minmax(0, 1fr) auto;
-    align-items: center;
-    gap: 0.5rem;
-    color: var(--fg);
-    font-family: var(--font-sans);
-    text-decoration: none;
-  }
-
-  .contents-overview a:hover { background: var(--surface); }
-
-  .contents-overview a > span {
-    color: var(--fg-muted);
-    font: 500 0.61rem/1 var(--font-mono);
-  }
-
-  .contents-overview strong {
-    font-size: 0.73rem;
-    font-weight: 600;
-  }
-
-  .contents-overview small {
-    color: var(--fg-muted);
-    font-size: 0.62rem;
-  }
-
-  .paper-provenance {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem 1rem;
-    margin-top: 1.1rem;
-    color: var(--fg-muted);
-    font: 400 0.62rem/1.5 var(--font-sans);
-  }
-
-  .paper-provenance a { color: inherit; }
+  .paper-header { margin-bottom: 3.5rem; font-family: var(--font-sans); scroll-margin-top: 1.25rem; }
+  .paper-breadcrumb { display: inline-flex; align-items: center; min-height: 2.75rem; margin: -0.75rem 0 1.5rem; color: var(--fg-muted); font-size: 0.75rem; font-weight: 600; text-decoration: none; }
+  .paper-breadcrumb::before { margin-right: 0.6rem; content: "←"; }
+  .paper-breadcrumb:hover { color: var(--accent); }
+  .paper-kicker-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.65rem 1rem; margin-bottom: 1.15rem; color: var(--fg-muted); font: 600 0.66rem/1.4 var(--font-sans); letter-spacing: 0.09em; text-transform: uppercase; }
+  .paper-kicker-row p { display: flex; align-items: center; gap: 0.5rem; margin: 0; }
+  .paper-kicker-row p:first-child { color: var(--accent); }
+  .paper-kicker-dot { width: 0.4rem; height: 0.4rem; border-radius: 50%; background: var(--accent); }
+  .paper-header h1 { max-width: 17ch; margin: 0; color: var(--fg); font-family: var(--font-sans); font-size: clamp(2.75rem, 4.4vw, 4.05rem); font-weight: 600; letter-spacing: -0.055em; line-height: 1.08; text-wrap: balance; }
+  .paper-summary { max-width: 58ch; margin: 1.4rem 0 0; color: var(--fg-muted); font-size: clamp(1rem, 1.3vw, 1.12rem); line-height: 1.7; }
+  .paper-byline { margin: 1rem 0 0; color: var(--fg-muted); font-size: 0.77rem; }
+  .paper-byline a { color: var(--fg); font-weight: 600; }
+  .paper-links { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem 1.35rem; margin-top: 1.65rem; }
+  .paper-links a { display: inline-flex; min-height: 2.8rem; align-items: center; gap: 0.65rem; color: var(--accent); font-size: 0.78rem; font-weight: 600; text-decoration: none; }
+  .paper-links a:hover { text-decoration: underline; text-underline-offset: 0.3em; }
+  .paper-links .paper-start { justify-content: center; gap: 1.5rem; padding: 0.7rem 1.1rem; border: 1px solid var(--accent); border-radius: 0.35rem; background: var(--accent); color: var(--bg); text-decoration: none; }
+  .paper-links .paper-start:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .paper-resume { display: flex; flex-wrap: wrap; gap: 0.25rem 0.65rem; align-items: center; margin-top: 0.9rem; padding-block: 0.4rem; color: var(--accent); font-size: 0.72rem; text-decoration: none; }
+  .paper-resume[hidden] { display: none; }
+  .paper-resume > span:first-child { color: var(--fg-muted); }
+  .paper-resume:hover strong { text-decoration: underline; }
+  .paper-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 2rem 0 0; padding: 1.15rem 0; border: 1px solid var(--rule); border-radius: 0.6rem; background: var(--surface-strong); }
+  .paper-stats > div { display: flex; flex-direction: column; min-width: 0; padding: 0.15rem 1.1rem; }
+  .paper-stats > div + div { border-left: 1px solid var(--rule); }
+  .paper-stats dt { order: 1; margin-top: 0.35rem; color: var(--fg-muted); font: 400 0.66rem/1.5 var(--font-sans); }
+  .paper-stats dd { margin: 0; color: var(--fg); font: 600 1.5rem/1.2 var(--font-sans); letter-spacing: -0.04em; font-variant-numeric: tabular-nums; }
+  .paper-stats dd span { color: var(--fg-muted); font-size: 0.8rem; font-weight: 400; letter-spacing: 0; }
+  .contents-overview { margin-top: 2.5rem; }
+  .contents-overview-heading { margin-bottom: 1rem; }
+  .contents-overview h2 { margin: 0; padding: 0; border: 0; color: var(--fg); font: 600 1rem/1.4 var(--font-sans); letter-spacing: -0.02em; }
+  .contents-overview-heading p { margin: 0.25rem 0 0; color: var(--fg-muted); font-size: 0.73rem; }
+  .contents-overview ol { display: grid; grid-template-columns: 1fr 1fr; gap: 0.65rem; margin: 0; padding: 0; list-style: none; }
+  .contents-overview li { margin: 0; padding: 0; }
+  .contents-overview a { height: 100%; min-height: 7.5rem; padding: 1rem; display: grid; grid-template-columns: 1.4rem minmax(0, 1fr) auto; align-items: start; gap: 0.5rem; border: 1px solid var(--rule); border-radius: 0.45rem; background: color-mix(in oklab, var(--surface) 60%, var(--bg)); color: var(--fg); text-decoration: none; transition: border-color 150ms ease, background 150ms ease; }
+  .contents-overview a:hover { border-color: var(--accent); background: var(--accent-soft); }
+  .path-number { padding-top: 0.2rem; color: var(--accent); font: 500 0.66rem/1.2 var(--font-mono); }
+  .path-copy { display: grid; gap: 0.45rem; }
+  .path-copy small { color: var(--fg-muted); font-size: 0.62rem; }
+  .path-copy strong { font-size: 0.78rem; font-weight: 600; line-height: 1.4; }
+  .path-copy > span { color: var(--fg-muted); font-size: 0.67rem; line-height: 1.55; }
+  .path-arrow { color: var(--accent); font-size: 0.8rem; }
+  .paper-provenance { margin-top: 1.4rem; border-bottom: 1px solid var(--rule); color: var(--fg-muted); font: 400 0.7rem/1.7 var(--font-sans); }
+  .paper-provenance summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; min-height: 2.8rem; cursor: pointer; list-style: none; }
+  .paper-provenance summary::-webkit-details-marker { display: none; }
+  .paper-provenance summary:hover { color: var(--accent); }
+  .paper-provenance summary > span { font-size: 1rem; transition: transform 150ms ease; }
+  .paper-provenance[open] summary > span { transform: rotate(45deg); }
+  .paper-provenance > div { padding-bottom: 0.75rem; overflow-wrap: anywhere; }
+  .paper-provenance p { margin: 0.5rem 0; }
   .paper-provenance code { color: var(--fg); font-size: 0.95em; }
-
   @media (max-width: 680px) {
-    .paper-header { margin-bottom: 3rem; padding-bottom: 2.5rem; }
-    .paper-breadcrumb { margin-bottom: 2rem; }
-    .paper-kicker-row { align-items: flex-start; flex-direction: column; gap: 0.3rem; }
-    .paper-header h1 { font-size: clamp(2.55rem, 13vw, 3.4rem); }
-    .paper-links { align-items: flex-start; flex-direction: column; }
-    .paper-stats { grid-template-columns: 1fr 1fr; }
+    .paper-header { margin-bottom: 2.5rem; }
+    .paper-breadcrumb { margin-bottom: 1.15rem; }
+    .paper-header h1 { font-size: clamp(2.4rem, 11vw, 3.4rem); }
+    .paper-kicker-row { font-size: 0.6rem; }
+    .paper-links { gap: 0.6rem 1.2rem; }
+    .paper-links .paper-start { flex-basis: 100%; }
+    .paper-links a { font-size: 0.75rem; }
+    .paper-stats { grid-template-columns: 1fr 1fr; padding: 0; }
+    .paper-stats > div { padding: 1rem; }
     .paper-stats > div:nth-child(3) { border-left: 0; }
     .paper-stats > div:nth-child(n + 3) { border-top: 1px solid var(--rule); }
     .contents-overview ol { grid-template-columns: 1fr; }
-    .contents-overview li:nth-child(odd) { border-right: 0; }
-    .contents-overview a { grid-template-columns: 1.7rem minmax(0, 1fr); }
-    .contents-overview small { grid-column: 2; }
+    .contents-overview a { min-height: 0; padding: 1rem; }
+    .path-copy { gap: 0.3rem; }
   }
 </style>
